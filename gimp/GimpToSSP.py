@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # GIMP plugin to export layers as PNGs, then run Sprite Sheet Packer on the
 # exported images to generate a texture atlas and map.
+
+#Change: Doesn't save txt files in GIMP bin directory
+
+#History
 # Author: Pravin Kumar (Aralox) <aralox@gmail.com>
 # Copyright 2012 Pravin Kumar
 # License: GPL v3+
@@ -8,10 +12,9 @@
 # For the methods export_layers, get_layers_to_export and format_filename:
 #   Original Author: Chris Mohler <cr33dog@gmail.com> (Copyright 2009)
 
-
-
 import os;
 import subprocess
+import json
 from gimpfu import *
 
 def export_to_ssp(img, path, only_visible, flatten, sspack_dir, texname, mapname):
@@ -22,7 +25,7 @@ def export_to_ssp(img, path, only_visible, flatten, sspack_dir, texname, mapname
         os.makedirs(img_dir)
 
     #export layers to files
-    imglist_name = os.path.join(os.getcwd() , "ImageList.txt")
+    imglist_name = os.path.join(path , "ImageList.txt")
     imglist_file = open(imglist_name, 'w')
     export_layers(img, img_dir, only_visible, flatten, imglist_file)
     imglist_file.close()
@@ -36,32 +39,44 @@ def export_to_ssp(img, path, only_visible, flatten, sspack_dir, texname, mapname
         param_maxw = '/mw:4096' #default
         param_maxh = '/mh:4096' #default
         param_pad = '/pad:1'    #default
-        param_imglist = '/il:' + imglist_name   #eg /il:C:\Users\Pravin\AppData\Roaming\SpriteSheetPacker\FileList.txt 
+        param_imglist = '/il:' + imglist_name   #eg /il:C:\Users\Pravin\AppData\Roaming\SpriteSheetPacker\FileList.txt
+        pdb.gimp_message([sspack, param_img, param_map, param_maxw, param_maxh, param_pad, param_imglist])
         subprocess.call([sspack, param_img, param_map, param_maxw, param_maxh, param_pad, param_imglist])
 
     else:
         pdb.gimp_message("sspack.exe was not found in that directory. Texture atlas and map were not created.")
 
+    configDic = load_config_file()
+    configDic['spritePackerPath'] = sspack_dir
+    configDic['outputPath'] = path
     #save configurations for convenience
-    config = open("GimpToSSP.cfg", 'w')
-    config.write(sspack_dir)
+    config = open(get_config_file(), 'w')
+    config.write(json.dumps(configDic))
     config.close()
 
     return
 
-
-def get_sspack_dir():
-
+def get_config_file():
     filename = "GimpToSSP.cfg"
+    home = os.path.expanduser("~")
+    folder = os.path.join(home, "flumpKit")
+    return os.path.join(folder, filename)
 
-    #Gets previously saved location of sspack from config file if available
-    if os.path.exists(filename):
-        config = open(filename, "r")
-        sspack_dir = config.read()
-        config.close()
-        return sspack_dir
-    else:
-        return os.getcwd()
+def load_config_file():
+    json_data=open(get_config_file())
+    data = json.load(json_data)
+    json_data.close()
+    return data
+
+def get_sspack_dir(config):
+    if 'spritePackerPath' in config:
+        return config['spritePackerPath']
+    return os.getcwd()
+
+def get_output_path(config):
+    if 'outputPath' in config:
+        return config['outputPath']
+    return os.getcwd()
 
 
 #original version also had regex commands in here to clean out whitespace
@@ -114,6 +129,12 @@ def export_layers(img, path, only_visible, flatten, file):
             #see the procedure browser under the help menu in gimp, for info on this function
             pdb.file_png_save(tmp, layer, fullpath, filename, 0, 9, 1, 1, 1, 1, 1)
 
+#REGISTER
+import sys
+sys.stderr = open( 'c:\\temp\\gimpstderr.txt', 'w')
+sys.stdout = open( 'c:\\temp\\gimpstdout.txt', 'w')
+
+config = load_config_file()
 
 #see gimpfu.py for info on register()
 register(
@@ -132,12 +153,12 @@ register(
     params = [
         #Image export parameters
         (PF_IMAGE, "img", "Image", None),
-        (PF_DIRNAME, "path", "Save PNGs here", os.getcwd()),
+        (PF_DIRNAME, "path", "Save PNGs here", get_output_path(config)),
         (PF_BOOL, "only_visible", "Only Visible Layers?", True),
         (PF_BOOL, "flatten", "Flatten Images? (Replaces alpha channel with background color)", False),
 
         #Sprite sheet packer parameters
-        (PF_DIRNAME, "sspack_dir", "Directory of Sprite Sheet Packer", get_sspack_dir()),
+        (PF_DIRNAME, "sspack_dir", "Directory of Sprite Sheet Packer", get_sspack_dir(config)),
         (PF_STRING, "texname", "Texture Atlas Name (this png will be referenced inside map)", "atlas"),
         (PF_STRING, "mapname", "Map Name (skin)", "map")
     ],
@@ -148,6 +169,8 @@ register(
 
 main()
 
+
+
 #Here for gimp module documentation: http://developer.gimp.org/api/2.0/index.html
 #Go to help->procedure browser in Gimp for help on pdb functions
 #Note about 'drawables' from http://www.gimp.org/docs/plug-in/sect-image.html:
@@ -155,3 +178,5 @@ main()
 # but they're all just a bunch of pixels that can be drawn on, so we treat them much the same
 # and lump them all in to the category of "drawables". 
 # And an image, then, is just what you get when you put some drawables together."
+
+#After putting your values in the register method, save your script. Make sure that it is executable and is located in the .gimp2-6/plug-ins folder.
