@@ -31,9 +31,11 @@ bl_info = {
 
 import bpy
 from bpy.types import Operator
+from bpy.types import Menu, Panel
 import mathutils
 import os
 import collections
+import json
 
 from bpy.props import (StringProperty,
                        BoolProperty,
@@ -45,6 +47,10 @@ from bpy.props import (StringProperty,
 
 from bpy_extras.object_utils import AddObjectHelper, object_data_add
 from bpy_extras.image_utils import load_image
+
+#the from part represents directory and filenames
+#the import part represents a class or method name etc
+from bl_ui.space_view3d_toolbar import View3DPanel
 
 # -----------------------------------------------------------------------------
 # Global Vars
@@ -67,6 +73,7 @@ EXT_FILTER = getattr(collections, "OrderedDict", dict)((
     ("mov", (("mov", "qt"), "QuickTime ({})", "")),
     ("mp4", (("mp4", ), "MPEG-4 ({})", "MPEG-4 Part 14")),
     ("ogg", (("ogg", "ogv"), "OGG Theora ({})", "")),
+    ("json", (("json", ), "JSON ({})","Flump Json")),
 ))
 
 # XXX Hack to avoid allowing videos with Cycles, crashes currently!
@@ -86,11 +93,13 @@ def gen_ext_filter_ui_items():
                  for k, (exts, name, desc) in EXT_FILTER.items())
 
 
-def is_image_fn(fn, ext_key):
+def is_image_fn(fn, ext_key, filter_list ):
+    if filter_list is None:
+        filter_list = EXT_FILTER[ext_key][0]
     if ext_key == DEFAULT_EXT:
         return True  # Using Blender's image/movie filter.
     ext = os.path.splitext(fn)[1].lstrip(".").lower()
-    return ext in EXT_FILTER[ext_key][0]
+    return ext in filter_list
 
 
 # -----------------------------------------------------------------------------
@@ -149,6 +158,17 @@ def clean_node_tree(node_tree):
             nodes.remove(node)
     return node_tree.nodes[0]
 
+
+def create_image_plane(context, x, y):
+        bpy.ops.mesh.primitive_plane_add('INVOKE_REGION_WIN')
+        plane = context.scene.objects.active
+        # Why does mesh.primitive_plane_add leave the object in edit mode???
+        if plane.mode is not 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+        plane.dimensions = x, y, 0.0
+        bpy.ops.object.transform_apply(scale=True)
+        plane.data.uv_textures.new()
+        return plane
 
 # -----------------------------------------------------------------------------
 # Operator (This is the class which represents an operator. The menu'ing system knows how to handle stuff inside it.
@@ -331,8 +351,9 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
     ################################################################### Which calls this in turn
     def import_images(self, context):
         engine = context.scene.render.engine
-        import_list, directory = self.generate_paths()
+        import_list, directory = self.generate_paths(self.extension)
 
+        #get blender image objects based on the import_list
         images = (load_image(path, directory) for path in import_list)
 
         if engine == 'BLENDER_RENDER':
@@ -346,7 +367,7 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
         elif engine == 'CYCLES':
             materials = (self.create_cycles_material(img) for img in images)
 
-        planes = tuple(self.create_image_plane(context, mat) for mat in materials)
+        planes = tuple(self.create_image_plane_from_mat(context, mat) for mat in materials)
 
         context.scene.update()
         if self.align:
@@ -357,7 +378,8 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
 
         self.report({'INFO'}, "Added {} Image Plane(s)".format(len(planes)))
 
-    def create_image_plane(self, context, material):
+        
+    def create_image_plane_from_mat(self, context, material):
         engine = context.scene.render.engine
         if engine == 'BLENDER_RENDER':
             img = material.texture_slots[0].texture.image
@@ -382,14 +404,7 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
             x = px * fact
             y = py * fact
 
-        bpy.ops.mesh.primitive_plane_add('INVOKE_REGION_WIN')
-        plane = context.scene.objects.active
-        # Why does mesh.primitive_plane_add leave the object in edit mode???
-        if plane.mode is not 'OBJECT':
-            bpy.ops.object.mode_set(mode='OBJECT')
-        plane.dimensions = x, y, 0.0
-        bpy.ops.object.transform_apply(scale=True)
-        plane.data.uv_textures.new()
+        plane = create_image_plane(context, 0,0,x,y)
         plane.data.materials.append(material)
         plane.data.uv_textures[0].data[0].image = img
 
@@ -409,9 +424,12 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
             plane.location += move_world
             offset += (plane.dimensions.x / 2.0)
 
-    def generate_paths(self):
-        return (fn.name for fn in self.files if is_image_fn(fn.name, self.extension)), self.directory
+    def generate_paths(self, extension):
+        return (fn.name for fn in self.files if is_image_fn(fn.name, extension)), self.directory
 
+    def get_json_file():
+        return (fn.name for fn in self.files if is_image_fn(fn.name, extension, ("json")))[0]
+    
     # Internal
     def create_image_textures(self, context, image):
         fn_full = os.path.normpath(bpy.path.abspath(image.filepath))
@@ -544,6 +562,60 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
         auto_align_nodes(node_tree)
         return material
 
+importer = IMPORT_OT_sprites_to_plane
+class IMPORT_OT_planes_from_json(Operator):
+        bl_idname = "import_sprites.to_plane_from_json"
+        bl_label = "Import Json"
+        bl_options = {'REGISTER', 'UNDO'}
+        
+        def execute(self, context):
+                self.import_from_json(context)
+                return {'FINISHED'}
+                
+        def parent_to_new_group(self, child, parent):
+                for line in created_meshes:
+                        bpy.ops.object.select_name(name=str(line))
+                bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
+                bpy.ops.object.select_name(name=str(parent.name))
+                bpy.ops.object.parent_set(type='OBJECT')
+                
+        def import_from_json(self, context):
+                #~ jsonFile = get_json_file();
+                #~ print(jsonFile)
+                jsonFile = "C:\\Temp\\flumpkit\\demos\\flump\\library.json"
+                json_data=open(jsonFile)
+                data = json.load(json_data)
+                json_data.close()
+                
+                #planes and textures are the same thing at this stage
+                textures = data['textureGroups'][0]['atlases'][0]['textures']
+                parent = context.scene.objects.active
+                
+                for t in textures:
+                        sx,sy,ex,ey = t['rect'] #start and end
+                        ox,oy = t['origin'] #offset
+                        plane = create_image_plane(context, ex - sx , ey - sy) 
+                        bpy.ops.object.select_name(name=str(plane.name))
+                        bpy.ops.transform.translate(value=(ox oy, 0), constraint_orientation='GLOBAL')
+                        break
+                return
+
+
+class VIEW3D_PT_flump_kit(View3DPanel, Panel):
+    bl_idname = "VIEW3D_PT_flump_kit"
+    bl_label = "Flump Kit"
+    #~ bl_space_type = 'PROPERTIES'
+    #~ bl_region_type = 'WINDOW'
+    bl_context = "objectmode"
+
+    def draw(self, context):
+        #~ self.layout.label(text="Hello World")
+        layout = self.layout
+        col = layout.column(align=True)
+        col.label(text="Import planes from json:")
+        col.operator(IMPORT_OT_planes_from_json.bl_idname)
+
+
 
 # -----------------------------------------------------------------------------
 # Register
@@ -556,6 +628,8 @@ def register():
     #http://wiki.blender.org/index.php/Dev:2.5/Py/Scripts/Cookbook/Code_snippets/Interface
     
     bpy.utils.register_module(__name__) #registers everything in this file
+    #or do  for example
+    #~ bpy.utils.register_class(HelloWorldPanel)
     bpy.types.INFO_MT_file_import.append(import_images_button) #adds items to menu
     bpy.types.INFO_MT_mesh_add.append(import_images_button)
 
