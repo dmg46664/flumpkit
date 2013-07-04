@@ -159,46 +159,15 @@ def clean_node_tree(node_tree):
     return node_tree.nodes[0]
 
 
-def create_image_plane(context, x, y):
-        bpy.ops.mesh.primitive_plane_add('INVOKE_REGION_WIN')
-        plane = context.scene.objects.active
-        # Why does mesh.primitive_plane_add leave the object in edit mode???
-        if plane.mode is not 'OBJECT':
-            bpy.ops.object.mode_set(mode='OBJECT')
-        plane.dimensions = x, y, 0.0
-        bpy.ops.object.transform_apply(scale=True)
-        plane.data.uv_textures.new()
-        return plane
+
 
 # -----------------------------------------------------------------------------
 # Operator (This is the class which represents an operator. The menu'ing system knows how to handle stuff inside it.
 
-class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
-    """Create mesh plane(s) from image files with the appropiate aspect ratio"""
-    bl_idname = "import_sprites.to_plane"
-    bl_label = "Import Sprites as Planes"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    # -----------
-    # File props.
-    files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
-
-    directory = StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'})
-
-    # Show only images/videos, and directories!
-    filter_image = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    filter_movie = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    filter_folder = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    filter_glob = StringProperty(default="", options={'HIDDEN', 'SKIP_SAVE'})
-
-    # --------
-    # Options.
-    align = BoolProperty(name="Align Planes", default=True, description="Create Planes in a row")
-
-    align_offset = FloatProperty(name="Offset", min=0, soft_min=0, default=0.1, description="Space between Planes")
-
+class SpritesFunctions():
+    
     # Callback which will update File window's filter options accordingly to extension setting.
-    def update_extensions(self, context):
+    def update_extensions2(self, context):
         is_cycles = context.scene.render.engine == 'CYCLES'
         if self.extension == DEFAULT_EXT:
             self.filter_image = True
@@ -224,65 +193,9 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
         space.params.filter_glob = self.filter_glob
         # XXX Seems to be necessary, else not all changes above take effect...
         bpy.ops.file.refresh()
-    extension = EnumProperty(name="Extension", items=gen_ext_filter_ui_items(),
-                             description="Only import files of this type", update=update_extensions)
+    
 
-    # -------------------
-    # Plane size options.
-    _size_modes = (
-        ('ABSOLUTE', "Absolute", "Use absolute size"),
-        ('DPI', "Dpi", "Use definition of the image as dots per inch"),
-        ('DPBU', "Dots/BU", "Use definition of the image as dots per Blender Unit"),
-    )
-    size_mode = EnumProperty(name="Size Mode", default='ABSOLUTE', items=_size_modes,
-                             description="How the size of the plane is computed")
-
-    height = FloatProperty(name="Height", description="Height of the created plane",
-                           default=1.0, min=0.001, soft_min=0.001, subtype='DISTANCE', unit='LENGTH')
-
-    factor = FloatProperty(name="Definition", min=1.0, default=600.0,
-                           description="Number of pixels per inch or Blender Unit")
-
-    # -------------------------
-    # Blender material options.
-    t = bpy.types.Material.bl_rna.properties["use_shadeless"]
-    use_shadeless = BoolProperty(name=t.name, default=False, description=t.description)
-
-    use_transparency = BoolProperty(name="Use Alpha", default=False, description="Use alphachannel for transparency")
-
-    t = bpy.types.Material.bl_rna.properties["transparency_method"]
-    items = tuple((it.identifier, it.name, it.description) for it in t.enum_items)
-    transparency_method = EnumProperty(name="Transp. Method", description=t.description, items=items)
-
-    t = bpy.types.Material.bl_rna.properties["use_transparent_shadows"]
-    use_transparent_shadows = BoolProperty(name=t.name, default=False, description=t.description)
-
-    #-------------------------
-    # Cycles material options.
-    shader = EnumProperty(name="Shader", items=CYCLES_SHADERS, description="Node shader to use")
-
-    overwrite_node_tree = BoolProperty(name="Overwrite Material", default=True,
-                                       description="Overwrite existing Material with new nodetree "
-                                                   "(based on material name)")
-
-    # --------------
-    # Image Options.
-    t = bpy.types.Image.bl_rna.properties["alpha_mode"]
-    alpha_mode_items = tuple((e.identifier, e.name, e.description) for e in t.enum_items)
-    alpha_mode = EnumProperty(name=t.name, items=alpha_mode_items, default=t.default, description=t.description)
-
-    t = bpy.types.IMAGE_OT_match_movie_length.bl_rna
-    match_len = BoolProperty(name=t.name, default=True, description=t.description)
-
-    t = bpy.types.Image.bl_rna.properties["use_fields"]
-    use_fields = BoolProperty(name=t.name, default=False, description=t.description)
-
-    t = bpy.types.ImageUser.bl_rna.properties["use_auto_refresh"]
-    use_auto_refresh = BoolProperty(name=t.name, default=True, description=t.description)
-
-    relative = BoolProperty(name="Relative", default=True, description="Apply relative paths")
-
-    def draw(self, context):
+    def draw2(self, context):
         engine = context.scene.render.engine
         layout = self.layout
 
@@ -325,13 +238,13 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
         else:
             box.prop(self, "factor")
 
-    def invoke(self, context, event):
+    def invoke2(self, context, event):
         self.update_extensions(context)
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
 ################################################################### When you hit import this gets called
-    def execute(self, context):
+    def execute2(self, context):
         if not bpy.data.is_saved:
             self.relative = False
 
@@ -378,6 +291,16 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
 
         self.report({'INFO'}, "Added {} Image Plane(s)".format(len(planes)))
 
+    def create_image_plane(self, context, x, y):
+        bpy.ops.mesh.primitive_plane_add('INVOKE_REGION_WIN')
+        plane = context.scene.objects.active
+        # Why does mesh.primitive_plane_add leave the object in edit mode???
+        if plane.mode is not 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+        plane.dimensions = x, y, 0.0
+        bpy.ops.object.transform_apply(scale=True)
+        plane.data.uv_textures.new()
+        return plane
         
     def create_image_plane_from_mat(self, context, material):
         engine = context.scene.render.engine
@@ -431,7 +354,7 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
         return (fn.name for fn in self.files if is_image_fn(fn.name, extension, ("json")))[0]
     
     # Internal
-    def create_image_textures(self, context, image):
+    def create_image_textures(self, properties, context, image):
         fn_full = os.path.normpath(bpy.path.abspath(image.filepath))
 
         # look for texture with importsettings
@@ -441,14 +364,14 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
                 if (tex_img is not None) and (tex_img.library is None):
                     fn_tex_full = os.path.normpath(bpy.path.abspath(tex_img.filepath))
                     if fn_full == fn_tex_full:
-                        self.set_texture_options(context, texture)
+                        self.set_texture_options(properties, context, texture)
                         return texture
 
         # if no texture is found: create one
         name_compat = bpy.path.display_name_from_filepath(image.filepath)
         texture = bpy.data.textures.new(name=name_compat, type='IMAGE')
         texture.image = image
-        self.set_texture_options(context, texture)
+        self.set_texture_options(properties, context, texture)
         return texture
 
     def create_material_for_texture(self, texture):
@@ -475,10 +398,10 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
         if self.relative:
             image.filepath = bpy.path.relpath(image.filepath)
 
-    def set_texture_options(self, context, texture):
-        texture.image.use_alpha = self.use_transparency
-        texture.image_user.use_auto_refresh = self.use_auto_refresh
-        if self.match_len:
+    def set_texture_options(self, props, context, texture):
+        texture.image.use_alpha = props.use_transparency
+        texture.image_user.use_auto_refresh = props.use_auto_refresh
+        if props.match_len:
             ctx = context.copy()
             ctx["edit_image"] = texture.image
             ctx["edit_image_user"] = texture.image_user
@@ -562,11 +485,98 @@ class IMPORT_OT_sprites_to_plane(Operator, AddObjectHelper):
         auto_align_nodes(node_tree)
         return material
 
-importer = IMPORT_OT_sprites_to_plane
-class IMPORT_OT_planes_from_json(Operator):
+
+##In order to share properties between multiple panels each of which
+## needs to be it's own class, the properties should not be defined
+## in each class but rather a separate PropertyGroup
+## this way you also have the option of sticking these properties globally
+## (the scene) for further interaction between panels and operators
+##    http://wiki.blender.org/index.php/Dev:2.5/Py/Scripts/Cookbook/Code_snippets/Interface
+##    http://www.blender.org/documentation/blender_python_api_2_57_release/bpy.types.PropertyGroup.html    
+class FlumpProps(bpy.types.PropertyGroup):
+##    # -----------
+##    # File props.
+##    files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
+##
+##    directory = StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'})
+##
+##    # Show only images/videos, and directories!
+##    filter_image = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+##    filter_movie = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+##    filter_folder = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+##    filter_glob = StringProperty(default="", options={'HIDDEN', 'SKIP_SAVE'})
+##
+##    # --------
+##    # Options.
+##    align = BoolProperty(name="Align Planes", default=True, description="Create Planes in a row")
+##
+##    align_offset = FloatProperty(name="Offset", min=0, soft_min=0, default=0.1, description="Space between Planes")
+
+    t = bpy.types.ImageUser.bl_rna.properties["use_auto_refresh"]
+    use_auto_refresh = BoolProperty(name=t.name, default=True, description=t.description)
+
+##    extension = EnumProperty(name="Extension", items=gen_ext_filter_ui_items(),
+##                             description="Only import files of this type", update=update_extensions)
+##
+##    # -------------------
+##    # Plane size options.
+##    _size_modes = (
+##        ('ABSOLUTE', "Absolute", "Use absolute size"),
+##        ('DPI', "Dpi", "Use definition of the image as dots per inch"),
+##        ('DPBU', "Dots/BU", "Use definition of the image as dots per Blender Unit"),
+##    )
+##    size_mode = EnumProperty(name="Size Mode", default='ABSOLUTE', items=_size_modes,
+##                             description="How the size of the plane is computed")
+##
+##    height = FloatProperty(name="Height", description="Height of the created plane",
+##                           default=1.0, min=0.001, soft_min=0.001, subtype='DISTANCE', unit='LENGTH')
+##
+##    factor = FloatProperty(name="Definition", min=1.0, default=600.0,
+##                           description="Number of pixels per inch or Blender Unit")
+##
+##    # -------------------------
+##    # Blender material options.
+##    t = bpy.types.Material.bl_rna.properties["use_shadeless"]
+##    use_shadeless = BoolProperty(name=t.name, default=False, description=t.description)
+##
+    use_transparency = BoolProperty(name="Use Alpha", default=False, description="Use alphachannel for transparency")
+##
+##    t = bpy.types.Material.bl_rna.properties["transparency_method"]
+##    items = tuple((it.identifier, it.name, it.description) for it in t.enum_items)
+##    transparency_method = EnumProperty(name="Transp. Method", description=t.description, items=items)
+##
+    t = bpy.types.Material.bl_rna.properties["use_transparent_shadows"]
+    use_transparent_shadows = BoolProperty(name=t.name, default=False, description=t.description)
+##
+##    #-------------------------
+##    # Cycles material options.
+##    shader = EnumProperty(name="Shader", items=CYCLES_SHADERS, description="Node shader to use")
+##
+##    overwrite_node_tree = BoolProperty(name="Overwrite Material", default=True,
+##                                       description="Overwrite existing Material with new nodetree "
+##                                                   "(based on material name)")
+##
+##    # --------------
+##    # Image Options.
+##    t = bpy.types.Image.bl_rna.properties["alpha_mode"]
+##    alpha_mode_items = tuple((e.identifier, e.name, e.description) for e in t.enum_items)
+##    alpha_mode = EnumProperty(name=t.name, items=alpha_mode_items, default=t.default, description=t.description)
+##
+    t = bpy.types.IMAGE_OT_match_movie_length.bl_rna
+    match_len = BoolProperty(name=t.name, default=True, description=t.description)
+##    match_len = BoolProperty("Match length", default=False, description="Match movie length")
+##
+##    t = bpy.types.Image.bl_rna.properties["use_fields"]
+##    use_fields = BoolProperty(name=t.name, default=False, description=t.description)
+##
+##    relative = BoolProperty(name="Relative", default=True, description="Apply relative paths")
+
+class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
         bl_idname = "import_sprites.to_plane_from_json"
         bl_label = "Import Json"
         bl_options = {'REGISTER', 'UNDO'}
+
+        props = bpy.props.PointerProperty(type=FlumpProps)
         
         def execute(self, context):
                 self.import_from_json(context)
@@ -574,7 +584,7 @@ class IMPORT_OT_planes_from_json(Operator):
                 
         def parent_to_new_group(self, child, parent):
                 for line in created_meshes:
-                        bpy.ops.object.select_name(name=str(line))
+                    bpy.ops.object.select_pattern(pattern=str(line), case_sensitive=False, extend=True)
                 bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
                 bpy.ops.object.select_name(name=str(parent.name))
                 bpy.ops.object.parent_set(type='OBJECT')
@@ -586,7 +596,10 @@ class IMPORT_OT_planes_from_json(Operator):
                 json_data=open(jsonFile)
                 data = json.load(json_data)
                 json_data.close()
-                
+
+                image_path = "C:\\temp\\flumpkit\\demos\\flump\\atlas0.png"
+                image = load_image(image_path, "")
+
                 #planes and textures are the same thing at this stage
                 textures = data['textureGroups'][0]['atlases'][0]['textures']
                 parent = context.scene.objects.active
@@ -594,11 +607,19 @@ class IMPORT_OT_planes_from_json(Operator):
                 for t in textures:
                         sx,sy,ex,ey = t['rect'] #start and end
                         ox,oy = t['origin'] #offset
-                        plane = create_image_plane(context, ex - sx , ey - sy) 
-                        bpy.ops.object.select_name(name=str(plane.name))
-                        bpy.ops.transform.translate(value=(ox oy, 0), constraint_orientation='GLOBAL')
+                        plane = self.create_image_plane(context, ex - sx , ey - sy)
+##                        self.report({'INFO'}, "Added {} Image Plane(s)".format(len(planes)))
+##                        self.report({'INFO'}, "Added {} Image Plane(s)" + plane)
+                        bpy.ops.object.select_pattern(pattern=str(plane.name), case_sensitive=False, extend=True)
+                
+                        bpy.ops.transform.translate(value=(ox, oy, 0),
+                                                    constraint_orientation='GLOBAL')
+                        self.create_image_textures(self.props, context, image)
+                        
                         break
                 return
+
+        
 
 
 class VIEW3D_PT_flump_kit(View3DPanel, Panel):
@@ -608,14 +629,21 @@ class VIEW3D_PT_flump_kit(View3DPanel, Panel):
     #~ bl_region_type = 'WINDOW'
     bl_context = "objectmode"
 
+    filepath = bpy.props.StringProperty(subtype='FILE_PATH') 
+
     def draw(self, context):
         #~ self.layout.label(text="Hello World")
         layout = self.layout
         col = layout.column(align=True)
         col.label(text="Import planes from json:")
         col.operator(IMPORT_OT_planes_from_json.bl_idname)
+        col.prop(self, 'filepath')
 
-
+##class IMPORT_OT_sprites_to_plane:
+##    """Create mesh plane(s) from image files with the appropiate aspect ratio"""
+##    bl_idname = "import_sprites.to_plane"
+##    bl_label = "Import Sprites as Planes"
+##    bl_options = {'REGISTER', 'UNDO'}
 
 # -----------------------------------------------------------------------------
 # Register
@@ -630,14 +658,14 @@ def register():
     bpy.utils.register_module(__name__) #registers everything in this file
     #or do  for example
     #~ bpy.utils.register_class(HelloWorldPanel)
-    bpy.types.INFO_MT_file_import.append(import_images_button) #adds items to menu
-    bpy.types.INFO_MT_mesh_add.append(import_images_button)
+##    bpy.types.INFO_MT_file_import.append(import_images_button) #adds items to menu
+##    bpy.types.INFO_MT_mesh_add.append(import_images_button)
 
 
 def unregister():
     bpy.utils.unregister_module(__name__)
-    bpy.types.INFO_MT_file_import.remove(import_images_button)
-    bpy.types.INFO_MT_mesh_add.remove(import_images_button)
+##    bpy.types.INFO_MT_file_import.remove(import_images_button)
+##    bpy.types.INFO_MT_mesh_add.remove(import_images_button)
 
 
 if __name__ == "__main__":
