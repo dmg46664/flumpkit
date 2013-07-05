@@ -47,6 +47,7 @@ from bpy.props import (StringProperty,
 
 from bpy_extras.object_utils import AddObjectHelper, object_data_add
 from bpy_extras.image_utils import load_image
+from mathutils import Vector
 
 #the from part represents directory and filenames
 #the import part represents a class or method name etc
@@ -273,7 +274,7 @@ class SpritesFunctions():
             textures = []
             for img in images:
                 self.set_image_options(img)
-                textures.append(self.create_image_textures(context, img))
+                textures.append(self.create_image_texture(context, img))
 
             materials = (self.create_material_for_texture(tex) for tex in textures)
 
@@ -354,7 +355,7 @@ class SpritesFunctions():
         return (fn.name for fn in self.files if is_image_fn(fn.name, extension, ("json")))[0]
     
     # Internal
-    def create_image_textures(self, properties, context, image):
+    def create_image_texture(self, properties, context, image):
         fn_full = os.path.normpath(bpy.path.abspath(image.filepath))
 
         # look for texture with importsettings
@@ -374,12 +375,12 @@ class SpritesFunctions():
         self.set_texture_options(properties, context, texture)
         return texture
 
-    def create_material_for_texture(self, texture):
+    def create_material_for_texture(self, props, texture):
         # look for material with the needed texture
         for material in bpy.data.materials:
             slot = material.texture_slots[0]
             if slot and slot.texture == texture:
-                self.set_material_options(material, slot)
+                self.set_material_options(props, material, slot)
                 return material
 
         # if no material found: create one
@@ -388,14 +389,14 @@ class SpritesFunctions():
         slot = material.texture_slots.add()
         slot.texture = texture
         slot.texture_coords = 'UV'
-        self.set_material_options(material, slot)
+        self.set_material_options(props, material, slot)
         return material
 
-    def set_image_options(self, image):
-        image.alpha_mode = self.alpha_mode
-        image.use_fields = self.use_fields
+    def set_image_options(self, props, image):
+        image.alpha_mode = props.alpha_mode
+        image.use_fields = props.use_fields
 
-        if self.relative:
+        if props.relative:
             image.filepath = bpy.path.relpath(image.filepath)
 
     def set_texture_options(self, props, context, texture):
@@ -407,8 +408,8 @@ class SpritesFunctions():
             ctx["edit_image_user"] = texture.image_user
             bpy.ops.image.match_movie_length(ctx)
 
-    def set_material_options(self, material, slot):
-        if self.use_transparency:
+    def set_material_options(self, props, material, slot):
+        if props.use_transparency:
             material.alpha = 0.0
             material.specular_alpha = 0.0
             slot.use_map_alpha = True
@@ -416,10 +417,10 @@ class SpritesFunctions():
             material.alpha = 1.0
             material.specular_alpha = 1.0
             slot.use_map_alpha = False
-        material.use_transparency = self.use_transparency
-        material.transparency_method = self.transparency_method
-        material.use_shadeless = self.use_shadeless
-        material.use_transparent_shadows = self.use_transparent_shadows
+        material.use_transparency = props.use_transparency
+        material.transparency_method = props.transparency_method
+        material.use_shadeless = props.use_shadeless
+        material.use_transparent_shadows = props.use_transparent_shadows
 
     #--------------------------------------------------------------------------
     # Cycles
@@ -534,17 +535,17 @@ class FlumpProps(bpy.types.PropertyGroup):
 ##    factor = FloatProperty(name="Definition", min=1.0, default=600.0,
 ##                           description="Number of pixels per inch or Blender Unit")
 ##
-##    # -------------------------
-##    # Blender material options.
-##    t = bpy.types.Material.bl_rna.properties["use_shadeless"]
-##    use_shadeless = BoolProperty(name=t.name, default=False, description=t.description)
-##
-    use_transparency = BoolProperty(name="Use Alpha", default=False, description="Use alphachannel for transparency")
-##
-##    t = bpy.types.Material.bl_rna.properties["transparency_method"]
-##    items = tuple((it.identifier, it.name, it.description) for it in t.enum_items)
-##    transparency_method = EnumProperty(name="Transp. Method", description=t.description, items=items)
-##
+    # -------------------------
+    # Blender material options.
+    t = bpy.types.Material.bl_rna.properties["use_shadeless"]
+    use_shadeless = BoolProperty(name=t.name, default=True, description=t.description)
+
+    use_transparency = BoolProperty(name="Use Alpha", default=True, description="Use alphachannel for transparency")
+
+    t = bpy.types.Material.bl_rna.properties["transparency_method"]
+    items = tuple((it.identifier, it.name, it.description) for it in t.enum_items)
+    transparency_method = EnumProperty(name="Transp. Method", description=t.description, items=items)
+
     t = bpy.types.Material.bl_rna.properties["use_transparent_shadows"]
     use_transparent_shadows = BoolProperty(name=t.name, default=False, description=t.description)
 ##
@@ -556,20 +557,25 @@ class FlumpProps(bpy.types.PropertyGroup):
 ##                                       description="Overwrite existing Material with new nodetree "
 ##                                                   "(based on material name)")
 ##
-##    # --------------
-##    # Image Options.
-##    t = bpy.types.Image.bl_rna.properties["alpha_mode"]
-##    alpha_mode_items = tuple((e.identifier, e.name, e.description) for e in t.enum_items)
-##    alpha_mode = EnumProperty(name=t.name, items=alpha_mode_items, default=t.default, description=t.description)
-##
+    # --------------
+    # Image Options.
+    t = bpy.types.Image.bl_rna.properties["alpha_mode"]
+    alpha_mode_items = tuple((e.identifier, e.name, e.description) for e in t.enum_items)
+    alpha_mode = EnumProperty(name=t.name, items=alpha_mode_items, default=t.default, description=t.description)
+
     t = bpy.types.IMAGE_OT_match_movie_length.bl_rna
     match_len = BoolProperty(name=t.name, default=True, description=t.description)
-##    match_len = BoolProperty("Match length", default=False, description="Match movie length")
-##
-##    t = bpy.types.Image.bl_rna.properties["use_fields"]
-##    use_fields = BoolProperty(name=t.name, default=False, description=t.description)
-##
-##    relative = BoolProperty(name="Relative", default=True, description="Apply relative paths")
+
+    t = bpy.types.Image.bl_rna.properties["use_fields"]
+    use_fields = BoolProperty(name=t.name, default=False, description=t.description)
+
+    relative = BoolProperty(name="Relative", default=True, description="Apply relative paths")
+
+
+
+
+
+
 
 class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
         bl_idname = "import_sprites.to_plane_from_json"
@@ -588,6 +594,36 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
                 bpy.ops.object.select_name(name=str(parent.name))
                 bpy.ops.object.parent_set(type='OBJECT')
+
+        def set_uv_map(self, context, sx, sy, ex, ey, width, height):
+            #target must be active selected object
+            obj = bpy.context.object.data
+            #sx, sy represents top left co-ordinates in Flump-PlayN
+            #ex, ey represent bottom right in Flump-PlayN
+
+            #Remember! Y-axis reversed (coords range from 0 to 1.0)
+            
+            #bottom left
+            obj.uv_layers["UVMap"].data[0].uv = Vector((sx /width , (height - ey) / height))
+            #bottom right
+            obj.uv_layers["UVMap"].data[1].uv = Vector((ex /width , (height - ey) / height))
+            #top right
+            obj.uv_layers["UVMap"].data[2].uv = Vector((ex /width , (height - sy) / height))
+            #top left
+            obj.uv_layers["UVMap"].data[3].uv = Vector((sx /width , (height - sy) / height))
+
+        def set_origin(self, context, ox, oy, width, height):
+            #target must be active selected object
+
+            #object is currently spans from -width/2 to +width/2
+            cx = (-width/2) + ox ;
+            #invert Y
+            cy = (height/2) - oy ;
+            bpy.context.scene.cursor_location = Vector((cx,cy,0.0))
+            bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='MEDIAN')
+
+
+
                 
         def import_from_json(self, context):
                 #~ jsonFile = get_json_file();
@@ -603,20 +639,35 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 #planes and textures are the same thing at this stage
                 textures = data['textureGroups'][0]['atlases'][0]['textures']
                 parent = context.scene.objects.active
-                
+
+                tex = self.create_image_texture(self.props, context, image)
+                #material
+                material = self.create_material_for_texture(self.props, tex)
+                depth = 0
                 for t in textures:
-                        sx,sy,ex,ey = t['rect'] #start and end
+                        sx,sy,tex_w,tex_h= t['rect'] #start and end
                         ox,oy = t['origin'] #offset
-                        plane = self.create_image_plane(context, ex - sx , ey - sy)
+
+                        #create plane
+                        bpy.context.scene.cursor_location = Vector((0.0,0.0,0.0))
+                        plane = self.create_image_plane(context, tex_w , tex_h)
 ##                        self.report({'INFO'}, "Added {} Image Plane(s)".format(len(planes)))
 ##                        self.report({'INFO'}, "Added {} Image Plane(s)" + plane)
                         bpy.ops.object.select_pattern(pattern=str(plane.name), case_sensitive=False, extend=True)
-                
-                        bpy.ops.transform.translate(value=(ox, oy, 0),
+                        self.set_uv_map(context, sx, sy, sx + tex_w, sy+tex_h, image.size[0], image.size[1])
+                        bpy.ops.transform.translate(value=(0, 0, depth),
                                                     constraint_orientation='GLOBAL')
-                        self.create_image_textures(self.props, context, image)
+                        self.set_origin(context, ox, oy, tex_w, tex_h)
+                        self.set_image_options(self.props, image)
                         
-                        break
+                        
+                        plane.data.materials.append(material)
+                        plane.data.uv_textures[0].data[0].image = image
+                        material.game_settings.use_backface_culling = False
+                        material.game_settings.alpha_blend = 'ALPHA'
+                        plane.name = t['symbol']
+                        depth += 0.1
+##                        if depth == 0.2: break
                 return
 
         
