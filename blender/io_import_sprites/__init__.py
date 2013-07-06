@@ -16,6 +16,8 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+## Interesting way to create the rig for Flump? http://www.cgmasters.net/free-tutorials/environment-animation-in-blender-2-5/
+
 bl_info = {
     "name": "Import Sprites as Planes",
     "author": "Daniel Gerson. Old code from: Florian Meyer (tstscr), mont29, matali",
@@ -595,6 +597,10 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 bpy.ops.object.select_name(name=str(parent.name))
                 bpy.ops.object.parent_set(type='OBJECT')
 
+        #inverts y axis
+        def transformPoint(self, x, y, width, height):
+            return (x, height - y)
+
         def set_uv_map(self, context, sx, sy, ex, ey, width, height):
             #target must be active selected object
             obj = bpy.context.object.data
@@ -602,25 +608,34 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
             #ex, ey represent bottom right in Flump-PlayN
 
             #Remember! Y-axis reversed (coords range from 0 to 1.0)
+
+            _ , ey = self.transformPoint(ex, ey, width, height)
+            _ , sy = self.transformPoint(sx, sy, width, height)
             
             #bottom left
-            obj.uv_layers["UVMap"].data[0].uv = Vector((sx /width , (height - ey) / height))
+            obj.uv_layers["UVMap"].data[0].uv = Vector((sx /width , ey / height))
             #bottom right
-            obj.uv_layers["UVMap"].data[1].uv = Vector((ex /width , (height - ey) / height))
+            obj.uv_layers["UVMap"].data[1].uv = Vector((ex /width , ey / height))
             #top right
-            obj.uv_layers["UVMap"].data[2].uv = Vector((ex /width , (height - sy) / height))
+            obj.uv_layers["UVMap"].data[2].uv = Vector((ex /width , sy / height))
             #top left
-            obj.uv_layers["UVMap"].data[3].uv = Vector((sx /width , (height - sy) / height))
+            obj.uv_layers["UVMap"].data[3].uv = Vector((sx /width , sy / height))
 
+
+
+        #target must be active selected object
         def set_origin(self, context, ox, oy, width, height):
-            #target must be active selected object
-
+            
+            #invert Y
+            ox,oy = self.transformPoint(ox, oy, width, height)
+            
             #object is currently spans from -width/2 to +width/2
             cx = (-width/2) + ox ;
-            #invert Y
-            cy = (height/2) - oy ;
+            cy = -(height/2) + oy ;
+            
             bpy.context.scene.cursor_location = Vector((cx,cy,0.0))
             bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='MEDIAN')
+
 
 
 
@@ -628,12 +643,12 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
         def import_from_json(self, context):
                 #~ jsonFile = get_json_file();
                 #~ print(jsonFile)
-                jsonFile = "C:\\Temp\\flumpkit\\demos\\flump\\library.json"
+                jsonFile = "C:\\tmp\\flumpkit\\demos\\flump\\library.json"
                 json_data=open(jsonFile)
                 data = json.load(json_data)
                 json_data.close()
 
-                image_path = "C:\\temp\\flumpkit\\demos\\flump\\atlas0.png"
+                image_path = "C:\\tmp\\flumpkit\\demos\\flump\\atlas0.png"
                 image = load_image(image_path, "")
 
                 #planes and textures are the same thing at this stage
@@ -657,6 +672,8 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                         self.set_uv_map(context, sx, sy, sx + tex_w, sy+tex_h, image.size[0], image.size[1])
                         bpy.ops.transform.translate(value=(0, 0, depth),
                                                     constraint_orientation='GLOBAL')
+
+                        
                         self.set_origin(context, ox, oy, tex_w, tex_h)
                         self.set_image_options(self.props, image)
                         
@@ -671,6 +688,15 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 return
 
         
+class IMPORT_OT_delete_scene(Operator):
+        bl_idname = "import_sprites.delete_scene"
+        bl_label = "Delete All Meshes"
+        bl_options = {'REGISTER', 'UNDO'}
+
+        def execute(self, context):
+            bpy.ops.object.select_by_type(extend=False, type='MESH')
+            bpy.ops.object.delete(use_global=False)
+            return {'FINISHED'}
 
 
 class VIEW3D_PT_flump_kit(View3DPanel, Panel):
@@ -686,8 +712,8 @@ class VIEW3D_PT_flump_kit(View3DPanel, Panel):
         #~ self.layout.label(text="Hello World")
         layout = self.layout
         col = layout.column(align=True)
-        col.label(text="Import planes from json:")
         col.operator(IMPORT_OT_planes_from_json.bl_idname)
+        col.operator(IMPORT_OT_delete_scene.bl_idname)
         col.prop(self, 'filepath')
 
 ##class IMPORT_OT_sprites_to_plane:
