@@ -648,6 +648,7 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                                         location=(4, -4, 0), rotation=(0, 0, 0), layers=layersList )
             
             bpy.context.object.data.draw_type = 'ENVELOPE'
+            bpy.context.object.draw_type = 'WIRE'
             bpy.ops.object.editmode_toggle()
             bpy.context.object.data.bones["Bone"].name = 'Default'
             return bpy.context.scene.objects.active
@@ -660,23 +661,38 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
 
             #add bone to armature
             bpy.ops.armature.bone_primitive_add(name="Bone")
+            bpy.ops.object.mode_set(mode='EDIT')
+            
+            armature.data.edit_bones['Bone'].tail.z = 0
+            armature.data.edit_bones['Bone'].tail.y = tex_height /2
 
             bpy.ops.object.mode_set(mode='POSE')
-            
-            #bpy.context.object.data.(null)[2] = 0
-            bpy.context.object.data.bones["Bone"].tail[2] =0
-            bpy.context.object.data.bones["Bone"].tail[1] =tex_height /2
+            bpy.context.object.pose.bones["Bone"].location[0] = 0
+            bpy.context.object.pose.bones["Bone"].rotation_quaternion[0] = 0
+            bpy.context.object.pose.bones["Bone"].rotation_mode = 'AXIS_ANGLE'
+            bpy.context.object.pose.bones["Bone"].rotation_mode = 'XYZ'
+            bpy.context.object.pose.bones["Bone"].rotation_euler[0] = 0
+
             
             
             #bpy.context.object.rotation_euler[2] = 5.75977
+            bpy.context.object.lock_location[0] = True
+            bpy.context.object.lock_location[1] = True
             bpy.context.object.lock_location[2] = True
             bpy.context.object.lock_rotation[0] = True
             bpy.context.object.lock_rotation[1] = True
+            bpy.context.object.lock_rotation[2] = True
+
+            bpy.ops.object.mode_set(mode='POSE')
+            bpy.context.object.pose.bones["Bone"].lock_location[2] = True
+            bpy.context.object.pose.bones["Bone"].lock_rotation[0] = True
+            bpy.context.object.pose.bones["Bone"].lock_rotation[1] = True
+
             
             bpy.context.object.data.bones["Bone"].name = name
 
-            bpy.context.object.data.bones[name].tail_radius = tex_width / 5
-            bpy.context.object.data.bones[name].head_radius = tex_width /3
+            bpy.context.object.data.bones[name].tail_radius = tex_width / 20.0
+            bpy.context.object.data.bones[name].head_radius = tex_width /10.0
 
             
             #bpy.ops.object.parent_set(type='BONE', xmirror=False, keep_transform=False)
