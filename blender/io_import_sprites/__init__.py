@@ -636,9 +636,56 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
             bpy.context.scene.cursor_location = Vector((cx,cy,0.0))
             bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='MEDIAN')
 
+        def transform_to_fit_parent_origin(self, context, ox, oy, width, height):
+            i = 5
+            
+        #returns an armature object
+        def create_armature(self):
+            layersList=(True, False, False, False,
+                 False, False, False, False, False, False, False,
+                 False, False, False, False, False, False, False, False, False)
+            bpy.ops.object.armature_add(view_align=False, enter_editmode=False,
+                                        location=(4, -4, 0), rotation=(0, 0, 0), layers=layersList )
+            
+            bpy.context.object.data.draw_type = 'ENVELOPE'
+            bpy.ops.object.editmode_toggle()
+            bpy.context.object.data.bones["Bone"].name = 'Default'
+            return bpy.context.scene.objects.active
+
+        #There will be a bone for each layer in the animation
+        def create_bone(self, armature, name, tex_width, tex_height):
+
+            bpy.ops.object.select_pattern(pattern=str(armature.name), case_sensitive=False, extend=True)
+            bpy.ops.object.mode_set(mode='EDIT')
+
+            #add bone to armature
+            bpy.ops.armature.bone_primitive_add(name="Bone")
+
+            bpy.ops.object.mode_set(mode='POSE')
+            
+            #bpy.context.object.data.(null)[2] = 0
+            bpy.context.object.data.bones["Bone"].tail[2] =0
+            bpy.context.object.data.bones["Bone"].tail[1] =tex_height /2
+            
+            
+            #bpy.context.object.rotation_euler[2] = 5.75977
+            bpy.context.object.lock_location[2] = True
+            bpy.context.object.lock_rotation[0] = True
+            bpy.context.object.lock_rotation[1] = True
+            
+            bpy.context.object.data.bones["Bone"].name = name
+
+            bpy.context.object.data.bones[name].tail_radius = tex_width / 5
+            bpy.context.object.data.bones[name].head_radius = tex_width /3
+
+            
+            #bpy.ops.object.parent_set(type='BONE', xmirror=False, keep_transform=False)
 
 
-
+        def set_parent_bone(self, obj, armature, bone_name):
+            obj.parent = armature
+            obj.parent_bone = bone_name
+            obj.parent_type = 'BONE'
                 
         def import_from_json(self, context):
                 #~ jsonFile = get_json_file();
@@ -655,6 +702,7 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 textures = data['textureGroups'][0]['atlases'][0]['textures']
                 parent = context.scene.objects.active
 
+                tex_map = {}
                 tex = self.create_image_texture(self.props, context, image)
                 #material
                 material = self.create_material_for_texture(self.props, tex)
@@ -674,7 +722,7 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                                                     constraint_orientation='GLOBAL')
 
                         
-                        self.set_origin(context, ox, oy, tex_w, tex_h)
+                        #self.set_origin(context, ox, oy, tex_w, tex_h)
                         self.set_image_options(self.props, image)
                         
                         
@@ -683,8 +731,23 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                         material.game_settings.use_backface_culling = False
                         material.game_settings.alpha_blend = 'ALPHA'
                         plane.name = t['symbol']
+                        tex_map[plane.name] = (plane, t)                        
+                        
                         depth += 0.1
 ##                        if depth == 0.2: break
+
+                armature = self.create_armature()
+                
+                for movie in data['movies']:
+                    movie_id = movie['id']
+                    self.report({'INFO'}, "movie: "+movie['id'])
+                    for layer in movie['layers']:
+                        ref = layer['keyframes'][0]['ref']
+                        self.report({'INFO'}, "  layer: "+layer['name']+" "+ref)
+                        plane, tex = tex_map[ref]
+                        self.create_bone(armature, layer['name'], tex['rect'][2], tex['rect'][3])
+                        self.set_parent_bone(plane, armature, layer['name'])
+                    break #break on first attack animation
                 return
 
         
@@ -696,6 +759,7 @@ class IMPORT_OT_delete_scene(Operator):
         def execute(self, context):
             bpy.ops.object.select_by_type(extend=False, type='MESH')
             bpy.ops.object.delete(use_global=False)
+            self.report({'INFO'}, "Deleted {} scenes(s)")
             return {'FINISHED'}
 
 
@@ -715,6 +779,7 @@ class VIEW3D_PT_flump_kit(View3DPanel, Panel):
         col.operator(IMPORT_OT_planes_from_json.bl_idname)
         col.operator(IMPORT_OT_delete_scene.bl_idname)
         col.prop(self, 'filepath')
+        
 
 ##class IMPORT_OT_sprites_to_plane:
 ##    """Create mesh plane(s) from image files with the appropiate aspect ratio"""
