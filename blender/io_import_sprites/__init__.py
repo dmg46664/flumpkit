@@ -645,7 +645,7 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                  False, False, False, False, False, False, False,
                  False, False, False, False, False, False, False, False, False)
             bpy.ops.object.armature_add(view_align=False, enter_editmode=False,
-                                        location=(4, -4, 0), rotation=(0, 0, 0), layers=layersList )
+                                        location=(0, 0, 0), rotation=(0, 0, 0), layers=layersList )
             
             bpy.context.object.data.draw_type = 'ENVELOPE'
             bpy.context.object.draw_type = 'WIRE'
@@ -698,6 +698,77 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
             #bpy.ops.object.parent_set(type='BONE', xmirror=False, keep_transform=False)
 
 
+        
+        def pose_layer(self, armature, bone_name, plane, tex, key, frame):
+            loc = key['loc']
+            ox,oy,width,height = tex['rect']
+##            bpy.ops.object.select_all(action='DESELECT')
+            bpy.context.scene.objects.active = bpy.data.objects[armature.name]
+            #bpy.ops.object.select_pattern(pattern=str(armature.name), case_sensitive=False, extend=True)
+            bpy.ops.object.mode_set(mode='POSE')
+            if loc is not None:
+##                loc = self.transformPoint(loc[0], loc[1], width, height)
+                bpy.context.object.pose.bones[bone_name].location.x = loc[0]
+                bpy.context.object.pose.bones[bone_name].location.y = -loc[1]
+                bpy.context.object.pose.bones[bone_name].location.z = 0
+            pivot = key['pivot']
+            if pivot is not None:
+                #invertY 
+                ox, oy = self.transformPoint(pivot[0], pivot[1], width , height)
+
+                #tail position in image coordinates
+                tx = width / 2.0
+                ty = height / 2.0
+                #set origin
+                plane.location.x =  - ox + tx
+                plane.location.y =  - oy
+
+        #http://research.cs.wisc.edu/graphics/Courses/838-s2002/Papers/polar-decomp.pdf
+        #http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
+        #http://www.flipcode.com/documents/matrfaq.html#Q55
+        #row major order
+        def decompose_matrix(m00, m01, m10,m11):
+            #insert into 4x4 matrix
+            mat = (m00, m01, 0, 0,
+                 m10, m11, 0, 0,
+                 0, 0, 1, 0,
+                0, 0, 0, 1)
+            #calculate the trace of a matrix
+            t = m00 + m11 + 1 + 1
+
+            Qw, Qx, Qy, Qz = 0
+            #easy solution
+            if t > 0 :
+                S = 0.5 / sqrt(t)
+                Qw = 0.25 / S
+                Qx = ( mat[9] - mat[6] ) * S
+                Qy = ( mat[2] - mat[8] ) * S
+                Qz = ( mat[4] - mat[1] ) * S
+            else:
+                mr = mat
+                l = (m00, m11, 1)
+                i = a.index(max(a))
+                if i == 0:
+                    S  = sqrt( 1.0 + mr[0] - mr[5] - mr[10] ) * 2;
+                    Qx = 0.5 / S;
+                    Qy = (mr[1] + mr[4] ) / S;
+                    Qz = (mr[2] + mr[8] ) / S;
+                    Qw = (mr[6] + mr[9] ) / S;
+                if i == 1:
+                    S  = sqrt( 1.0 + mr[5] - mr[0] - mr[10] ) * 2;
+                    Qx = (mr[1] + mr[4] ) / S;
+                    Qy = 0.5 / S;
+                    Qz = (mr[6] + mr[9] ) / S;
+                    Qw = (mr[2] + mr[8] ) / S;
+                if i == 2:
+                    S  = sqrt( 1.0 + mr[10] - mr[0] - mr[5] ) * 2;
+                    Qx = (mr[2] + mr[8] ) / S;
+                    Qy = (mr[6] + mr[9] ) / S;
+                    Qz = 0.5 / S;
+                    Qw = (mr[1] + mr[4] ) / S;
+            return(Qw, Qx, Qy, Qz)
+            
+
         def set_parent_bone(self, obj, armature, bone_name):
             obj.parent = armature
             obj.parent_bone = bone_name
@@ -730,8 +801,6 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                         #create plane
                         bpy.context.scene.cursor_location = Vector((0.0,0.0,0.0))
                         plane = self.create_image_plane(context, tex_w , tex_h)
-##                        self.report({'INFO'}, "Added {} Image Plane(s)".format(len(planes)))
-##                        self.report({'INFO'}, "Added {} Image Plane(s)" + plane)
                         bpy.ops.object.select_pattern(pattern=str(plane.name), case_sensitive=False, extend=True)
                         self.set_uv_map(context, sx, sy, sx + tex_w, sy+tex_h, image.size[0], image.size[1])
                         bpy.ops.transform.translate(value=(0, 0, depth),
@@ -739,8 +808,7 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
 
                         
                         #self.set_origin(context, ox, oy, tex_w, tex_h)
-                        self.set_image_options(self.props, image)
-                        
+                        self.set_image_options(self.props, image)                        
                         
                         plane.data.materials.append(material)
                         plane.data.uv_textures[0].data[0].image = image
@@ -753,16 +821,27 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
 ##                        if depth == 0.2: break
 
                 armature = self.create_armature()
+
+                #setup screen
+                #bpy.data.screens["Default"].(null) = 'TEXTURED'
+##               bpy.data.screens["Default"].(null) = 10000
                 
                 for movie in data['movies']:
                     movie_id = movie['id']
                     self.report({'INFO'}, "movie: "+movie['id'])
                     for layer in movie['layers']:
-                        ref = layer['keyframes'][0]['ref']
+                        keyframes = layer['keyframes']
+                        ref = keyframes[0]['ref']
                         self.report({'INFO'}, "  layer: "+layer['name']+" "+ref)
                         plane, tex = tex_map[ref]
-                        self.create_bone(armature, layer['name'], tex['rect'][2], tex['rect'][3])
-                        self.set_parent_bone(plane, armature, layer['name'])
+                        bone_name = layer['name']
+                        self.create_bone(armature, bone_name, tex['rect'][2], tex['rect'][3])
+                        self.set_parent_bone(plane, armature, layer['name']) #only single symbol support
+                        for key in keyframes:
+                            self.pose_layer(armature, bone_name, plane, tex, key, 0)
+                            break 
+                                
+                            
                     break #break on first attack animation
                 return
 
