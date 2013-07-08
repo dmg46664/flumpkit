@@ -302,6 +302,10 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 for movie in data['movies']:
                     movie_id = movie['id']
                     self.report({'INFO'}, "movie: "+movie['id'])
+                    if not (movie_id =='walk'):
+                            continue
+##                        else:
+##                                self.report({'INFO'}, "WALK")
                     for layer in movie['layers']:
                         keyframes = layer['keyframes']
                         ref = keyframes[0]['ref']
@@ -309,6 +313,5 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                         bone_name = layer['name']
                         for key in keyframes:
                             self.pose_layer(armature, bone_name, plane, tex, key)
-
-                    break #only attack
+                    
                 return
