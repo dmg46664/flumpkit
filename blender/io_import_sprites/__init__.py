@@ -656,7 +656,7 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
             return bpy.context.scene.objects.active
 
         #There will be a bone for each layer in the animation
-        def create_bone(self, armature, name, tex_width, tex_height):
+        def create_bone(self, armature, name, tex_width, tex_height, depth):
 
             bpy.ops.object.select_pattern(pattern=str(armature.name), case_sensitive=False, extend=True)
             bpy.ops.object.mode_set(mode='EDIT')
@@ -669,14 +669,12 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
             armature.data.edit_bones['Bone'].tail.y = tex_height /2
 
             bpy.ops.object.mode_set(mode='POSE')
-            bpy.context.object.pose.bones["Bone"].location[0] = 0
+            bpy.context.object.pose.bones["Bone"].location[2] = depth
             bpy.context.object.pose.bones["Bone"].rotation_quaternion[0] = 0
             bpy.context.object.pose.bones["Bone"].rotation_mode = 'AXIS_ANGLE'
             bpy.context.object.pose.bones["Bone"].rotation_mode = 'XYZ'
             bpy.context.object.pose.bones["Bone"].rotation_euler[0] = 0
 
-            
-            
             #bpy.context.object.rotation_euler[2] = 5.75977
             bpy.context.object.lock_location[0] = True
             bpy.context.object.lock_location[1] = True
@@ -715,7 +713,6 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
 ##                loc = self.transformPoint(loc[0], loc[1], width, height)
                 bpy.context.object.pose.bones[bone_name].location.x = loc[0]
                 bpy.context.object.pose.bones[bone_name].location.y = -loc[1]
-                bpy.context.object.pose.bones[bone_name].location.z = 0
 
             scale = None
             
@@ -789,7 +786,6 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 tex = self.create_image_texture(self.props, context, image)
                 #material
                 material = self.create_material_for_texture(self.props, tex)
-                depth = 0
                 for t in textures:
                         sx,sy,tex_w,tex_h= t['rect'] #start and end
                         ox,oy = t['origin'] #offset
@@ -799,11 +795,10 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                         plane = self.create_image_plane(context, tex_w , tex_h)
                         bpy.ops.object.select_pattern(pattern=str(plane.name), case_sensitive=False, extend=True)
                         self.set_uv_map(context, sx, sy, sx + tex_w, sy+tex_h, image.size[0], image.size[1])
-                        bpy.ops.transform.translate(value=(0, 0, depth),
+                        bpy.ops.transform.translate(value=(0, 0, 0),
                                                     constraint_orientation='GLOBAL')
 
-                        
-                        #self.set_origin(context, ox, oy, tex_w, tex_h)
+
                         self.set_image_options(self.props, image)                        
                         
                         plane.data.materials.append(material)
@@ -811,17 +806,15 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                         material.game_settings.use_backface_culling = False
                         material.game_settings.alpha_blend = 'ALPHA'
                         plane.name = t['symbol']
-                        tex_map[plane.name] = (plane, t)                        
-                        
-                        depth += 0.1
-##                        if depth == 0.2: break
+                        tex_map[plane.name] = (plane, t)
+
 
                 armature = self.create_armature()
 
                 #setup screen
                 #bpy.data.screens["Default"].(null) = 'TEXTURED'
 ##               bpy.data.screens["Default"].(null) = 10000
-                
+                depth = 0
                 for movie in data['movies']:
                     movie_id = movie['id']
                     self.report({'INFO'}, "movie: "+movie['id'])
@@ -831,7 +824,8 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                         self.report({'INFO'}, "  layer: "+layer['name']+" "+ref)
                         plane, tex = tex_map[ref]
                         bone_name = layer['name']
-                        self.create_bone(armature, bone_name, tex['rect'][2], tex['rect'][3])
+                        self.create_bone(armature, bone_name, tex['rect'][2], tex['rect'][3], depth)
+                        depth += 0.1
                         self.set_parent_bone(plane, armature, layer['name']) #only single symbol support
                         for key in keyframes:
                             self.pose_layer(armature, bone_name, plane, tex, key, 0)
