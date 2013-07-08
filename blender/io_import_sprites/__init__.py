@@ -719,26 +719,28 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
 
             scale = None
             
+##            http://www.senocular.com/flash/tutorials/transformmatrix/
             if 'skew' in key :
                 skew = key['skew']
                 scale = (1,1)
                 if 'scale' in key:
                     scale = key['scale']
-        #http://research.cs.wisc.edu/graphics/Courses/838-s2002/Papers/polar-decomp.pdf
-        #http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
-        #http://www.flipcode.com/documents/matrfaq.html#Q55
 
-                m = mathutils.Matrix.Identity(4)
+                m = mathutils.Matrix.Identity(3)
                 m[0][0] = scale[0]
                 m[1][1] = scale[1]
                 m[0][1] = skew[0]
                 m[1][0] = skew[1]
-                m[3][3] = 0
-                loc, quat, scale = m.decompose()
-                euler = quat.to_euler()
-                
-                self.report({'INFO'}, "skew! {0},{1},{2}".format(euler.x, euler.y, euler.z))
-                bpy.context.object.pose.bones[bone_name].rotation_euler.z = - euler.z
+
+                b = Vector((1.0, 0.0, 0.0))
+                v = m * b
+                angle = v.angle(b)
+                c = v.cross(b)
+
+                if c[2] < 0:
+                    angle *= -1
+
+                bpy.context.object.pose.bones[bone_name].rotation_euler.z = angle
 
             if 'scale' in key:
                 if scale is None:
@@ -760,9 +762,6 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 #set origin
                 plane.location.x =  - ox + tx
                 plane.location.y =  - oy
-
-
-        #row major order
 
             
 
