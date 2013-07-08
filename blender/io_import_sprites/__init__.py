@@ -699,7 +699,7 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
 
 
         
-        def pose_layer(self, armature, bone_name, plane, tex, key, frame):
+        def pose_layer(self, armature, bone_name, plane, tex, key):
             
             ox,oy,width,height = tex['rect']
 ##            bpy.ops.object.select_all(action='DESELECT')
@@ -707,12 +707,18 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
             #bpy.ops.object.select_pattern(pattern=str(armature.name), case_sensitive=False, extend=True)
             bpy.ops.object.mode_set(mode='POSE')
 
+            #set index
+            bone = bpy.context.object.pose.bones[bone_name]
+            index = key['index']
+
             
             if 'loc' in key:
                 loc = key['loc']
 ##                loc = self.transformPoint(loc[0], loc[1], width, height)
-                bpy.context.object.pose.bones[bone_name].location.x = loc[0]
-                bpy.context.object.pose.bones[bone_name].location.y = -loc[1]
+                bone.location.x = loc[0]
+                bone.location.y = -loc[1]
+                bone.keyframe_insert(data_path="location", frame=index)
+                self.report({'INFO'}, "  bone loc: {0} index: {1}".format(bone_name, index))
 
             scale = None
             
@@ -729,27 +735,36 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 m[0][1] = skew[0]
                 m[1][0] = skew[1]
 
-                b = Vector((1.0, 0.0, 0.0))
-                v = m * b
-                angle = v.angle(b)
-                c = v.cross(b)
+                #y transform
+                y = Vector((1.0, 0.0, 0.0))
+                v = m * y
+                angle = v.angle(y)
+                c = v.cross(y)
 
+                #x transform
+                x = Vector((0.0, 1.0, 0.0))
+                v = m * x
+                angle2 = v.angle(x)
+
+                self.report({'INFO'}, "  angle: {0} angle2: {1}".format(angle, angle2))
+
+                avg = (angle + angle2)/2.0
                 if c[2] < 0:
-                    angle *= -1
+                    avg *= -1
 
-                bpy.context.object.pose.bones[bone_name].rotation_euler.z = angle
+                bone.rotation_euler.z = avg
+                bone.keyframe_insert(data_path="rotation_euler", frame=index)
 
             if 'scale' in key:
                 if scale is None:
                     scale = key['scale']
-                bpy.context.object.pose.bones[bone_name].scale.x = scale[0]
-                bpy.context.object.pose.bones[bone_name].scale.y = scale[1]
+                bone.scale.x = scale[0]
+                bone.scale.y = scale[1]
+                bone.keyframe_insert(data_path="scale", frame=index)
 
-            
-                
-                
-            pivot = key['pivot']
+
             if pivot is not None:
+                pivot = key['pivot']
                 #invertY 
                 ox, oy = self.transformPoint(pivot[0], pivot[1], width , height)
 
@@ -759,6 +774,7 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 #set origin
                 plane.location.x =  - ox + tx
                 plane.location.y =  - oy
+                plane.keyframe_insert(data_path="location", frame=index)
 
             
 
@@ -814,6 +830,8 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 #setup screen
                 #bpy.data.screens["Default"].(null) = 'TEXTURED'
 ##               bpy.data.screens["Default"].(null) = 10000
+
+                #create bones and parent them
                 depth = 0
                 for movie in data['movies']:
                     movie_id = movie['id']
@@ -821,18 +839,27 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                     for layer in movie['layers']:
                         keyframes = layer['keyframes']
                         ref = keyframes[0]['ref']
-                        self.report({'INFO'}, "  layer: "+layer['name']+" "+ref)
+##                        self.report({'INFO'}, "  layer: "+layer['name']+" "+ref)
                         plane, tex = tex_map[ref]
                         bone_name = layer['name']
                         self.create_bone(armature, bone_name, tex['rect'][2], tex['rect'][3], depth)
                         depth += 0.1
                         self.set_parent_bone(plane, armature, layer['name']) #only single symbol support
+                        
+                    break #break on first  animation
+
+                for movie in data['movies']:
+                    movie_id = movie['id']
+                    self.report({'INFO'}, "movie: "+movie['id'])
+                    for layer in movie['layers']:
+                        keyframes = layer['keyframes']
+                        ref = keyframes[0]['ref']
+                        plane, tex = tex_map[ref]
+                        bone_name = layer['name']
                         for key in keyframes:
-                            self.pose_layer(armature, bone_name, plane, tex, key, 0)
-                            break 
-                                
-                            
-                    break #break on first attack animation
+                            self.pose_layer(armature, bone_name, plane, tex, key)
+
+                    break #only attack
                 return
 
         
