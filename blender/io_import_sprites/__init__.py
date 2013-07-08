@@ -35,6 +35,7 @@ import bpy
 from bpy.types import Operator
 from bpy.types import Menu, Panel
 import mathutils
+import math
 import os
 import collections
 import json
@@ -50,6 +51,7 @@ from bpy.props import (StringProperty,
 from bpy_extras.object_utils import AddObjectHelper, object_data_add
 from bpy_extras.image_utils import load_image
 from mathutils import Vector
+from mathutils import Quaternion
 
 #the from part represents directory and filenames
 #the import part represents a class or method name etc
@@ -700,17 +702,53 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
 
         
         def pose_layer(self, armature, bone_name, plane, tex, key, frame):
-            loc = key['loc']
+            
             ox,oy,width,height = tex['rect']
 ##            bpy.ops.object.select_all(action='DESELECT')
             bpy.context.scene.objects.active = bpy.data.objects[armature.name]
             #bpy.ops.object.select_pattern(pattern=str(armature.name), case_sensitive=False, extend=True)
             bpy.ops.object.mode_set(mode='POSE')
-            if loc is not None:
+
+            
+            if 'loc' in key:
+                loc = key['loc']
 ##                loc = self.transformPoint(loc[0], loc[1], width, height)
                 bpy.context.object.pose.bones[bone_name].location.x = loc[0]
                 bpy.context.object.pose.bones[bone_name].location.y = -loc[1]
                 bpy.context.object.pose.bones[bone_name].location.z = 0
+
+            scale = None
+            
+            if 'skew' in key :
+                skew = key['skew']
+                scale = (1,1)
+                if 'scale' in key:
+                    scale = key['scale']
+        #http://research.cs.wisc.edu/graphics/Courses/838-s2002/Papers/polar-decomp.pdf
+        #http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
+        #http://www.flipcode.com/documents/matrfaq.html#Q55
+
+                m = mathutils.Matrix.Identity(4)
+                m[0][0] = scale[0]
+                m[1][1] = scale[1]
+                m[0][1] = skew[0]
+                m[1][0] = skew[1]
+                m[3][3] = 0
+                loc, quat, scale = m.decompose()
+                euler = quat.to_euler()
+                
+                self.report({'INFO'}, "skew! {0},{1},{2}".format(euler.x, euler.y, euler.z))
+                bpy.context.object.pose.bones[bone_name].rotation_euler.z = - euler.z
+
+            if 'scale' in key:
+                if scale is None:
+                    scale = key['scale']
+                bpy.context.object.pose.bones[bone_name].scale.x = scale[0]
+                bpy.context.object.pose.bones[bone_name].scale.y = scale[1]
+
+            
+                
+                
             pivot = key['pivot']
             if pivot is not None:
                 #invertY 
@@ -723,50 +761,9 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 plane.location.x =  - ox + tx
                 plane.location.y =  - oy
 
-        #http://research.cs.wisc.edu/graphics/Courses/838-s2002/Papers/polar-decomp.pdf
-        #http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
-        #http://www.flipcode.com/documents/matrfaq.html#Q55
-        #row major order
-        def decompose_matrix(m00, m01, m10,m11):
-            #insert into 4x4 matrix
-            mat = (m00, m01, 0, 0,
-                 m10, m11, 0, 0,
-                 0, 0, 1, 0,
-                0, 0, 0, 1)
-            #calculate the trace of a matrix
-            t = m00 + m11 + 1 + 1
 
-            Qw, Qx, Qy, Qz = 0
-            #easy solution
-            if t > 0 :
-                S = 0.5 / sqrt(t)
-                Qw = 0.25 / S
-                Qx = ( mat[9] - mat[6] ) * S
-                Qy = ( mat[2] - mat[8] ) * S
-                Qz = ( mat[4] - mat[1] ) * S
-            else:
-                mr = mat
-                l = (m00, m11, 1)
-                i = a.index(max(a))
-                if i == 0:
-                    S  = sqrt( 1.0 + mr[0] - mr[5] - mr[10] ) * 2;
-                    Qx = 0.5 / S;
-                    Qy = (mr[1] + mr[4] ) / S;
-                    Qz = (mr[2] + mr[8] ) / S;
-                    Qw = (mr[6] + mr[9] ) / S;
-                if i == 1:
-                    S  = sqrt( 1.0 + mr[5] - mr[0] - mr[10] ) * 2;
-                    Qx = (mr[1] + mr[4] ) / S;
-                    Qy = 0.5 / S;
-                    Qz = (mr[6] + mr[9] ) / S;
-                    Qw = (mr[2] + mr[8] ) / S;
-                if i == 2:
-                    S  = sqrt( 1.0 + mr[10] - mr[0] - mr[5] ) * 2;
-                    Qx = (mr[2] + mr[8] ) / S;
-                    Qy = (mr[6] + mr[9] ) / S;
-                    Qz = 0.5 / S;
-                    Qw = (mr[1] + mr[4] ) / S;
-            return(Qw, Qx, Qy, Qz)
+        #row major order
+
             
 
         def set_parent_bone(self, obj, armature, bone_name):
