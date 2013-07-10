@@ -70,6 +70,7 @@ if 'bpy' in locals():
     if 'io_import_sprites.import_scripts' in locals():
 ##        imp.reload(io_import_sprites.common)
         imp.reload(io_import_sprites.import_scripts)
+        imp.reload(io_import_sprites.export_scripts)
 ##else: #TODO ---------------------------------------- <-- Something wrong! Shouldn't be commented out.
 ##    from io_import_sprites.common import (
 ##            Ms3dImportOperator,
@@ -80,6 +81,9 @@ if 'bpy' in locals():
 if 'IMPORT_OT_planes_from_json' not in locals():
     from io_import_sprites.import_scripts import (
             IMPORT_OT_planes_from_json,
+            )
+    from io_import_sprites.export_scripts import (
+            EXPORT_OT_flump_to_json,
             )
     
 
@@ -111,6 +115,7 @@ class VIEW3D_PT_flump_kit(View3DPanel, Panel):
         col = layout.column(align=True)
         col.operator(IMPORT_OT_planes_from_json.bl_idname)
         col.operator(IMPORT_OT_delete_scene.bl_idname)
+        col.operator(EXPORT_OT_flump_to_json.bl_idname)
 ##        col.prop(self, 'filepath')
         
 
