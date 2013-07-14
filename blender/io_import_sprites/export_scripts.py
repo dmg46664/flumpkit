@@ -71,10 +71,18 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
 
                 #get layers
                 bpy.context.scene.objects.active = bpy.context.scene.objects['Armature'] #context now armature
+                arm = bpy.context.scene.objects.active 
                 ob_act = bpy.context.scene.objects.active.animation_data.action
                 curves = ob_act.fcurves        
                 bone_keys = bpy.context.object.pose.bones.keys() #some of these bones are layers
                 layers = (b for b in bone_keys if 'flump_layer' in bpy.context.object.pose.bones[b])
+
+                #Assumes one symbol per layer
+                symbols = {}
+                for child in arm.children:
+                        symbols[child.parent_bone] = child #object, not name
+                
+                
 
                 layer_frames ={}
 
@@ -92,7 +100,9 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                                 # do something with curve_id, frame and value
 ##                                self.report({'INFO'}, 'EXTRACT {0},{1},{2}'.format(curve_id, frame, value))
 
-                sequence_length = 300
+                        layer_frames[obj_name] = sorted(list(set(layer_frames[obj_name])))
+
+                sequence_length = bpy.context.scene.frame_end
 
                 #loop through layer_frames
                 for bone_name in layers:
@@ -106,7 +116,7 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                         json_keyframes = []
                         json_layer['keyframes'] = json_keyframes
                         
-                        frames = sorted(frames)
+                        
 
                         len_frames = len(frames)
                         for i in range(len(frames)):
@@ -115,10 +125,11 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                                 json_frame['index'] = frames[i]
                                 nextframe = sequence_length
                                 if (i+1 < len_frames):
-                                        nextframe = frames[i]
+                                        nextframe = frames[i+1]
                                 json_frame['duration'] = nextframe - frames[i]
 
                                 #store frame values
+                                bpy.context.scene.frame_set(frames[i])
                                 pose_bone = bpy.context.object.pose.bones[bone_name]
                                 obj = pose_bone.id_data
                                 matrix = obj.matrix_world * pose_bone.matrix
@@ -130,6 +141,7 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                                 json_frame['skew'] = [matrix[0][1], matrix[1][0]]
                                 json_frame['scale'] = [matrix[0][0], matrix[1][1]]
                                 json_frame['pivot'] = [0.0, 0.0] #TODO
+                                json_frame['ref'] = symbols[bone_name].name
                                 
                                 
 

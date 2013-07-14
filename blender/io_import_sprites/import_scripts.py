@@ -304,6 +304,7 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                         
                     break #break on first  animation
 
+                last_frame = 0
                 for movie in data['movies']:
                     movie_id = movie['id']
                     self.report({'INFO'}, "movie: "+movie['id'])
@@ -318,5 +319,7 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                         bone_name = layer['name']
                         for key in keyframes:
                             self.pose_layer(armature, bone_name, plane, tex, key)
-                    
+                            if key['index'] + key['duration']> last_frame:
+                                    last_frame = key['index'] + key['duration']
+                bpy.context.scene.frame_end = last_frame
                 return
