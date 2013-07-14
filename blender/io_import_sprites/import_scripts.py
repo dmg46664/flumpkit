@@ -135,15 +135,20 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
             bpy.context.object.lock_rotation[2] = True
 
             bpy.ops.object.mode_set(mode='POSE')
-            bpy.context.object.pose.bones["Bone"].lock_location[2] = True
-            bpy.context.object.pose.bones["Bone"].lock_rotation[0] = True
-            bpy.context.object.pose.bones["Bone"].lock_rotation[1] = True
+            bone = bpy.context.object.pose.bones["Bone"]
+            bone.lock_location[2] = True
+            bone.lock_rotation[0] = True
+            bone.lock_rotation[1] = True
 
+            bone_obj = bpy.context.object.data.bones["Bone"]
+            bone_obj.name = name
             
-            bpy.context.object.data.bones["Bone"].name = name
 
-            bpy.context.object.data.bones[name].tail_radius = tex_width / 20.0
-            bpy.context.object.data.bones[name].head_radius = tex_width /10.0
+            #set flump_layer property
+            bone['flump_layer'] = name ;
+
+            bone_obj.tail_radius = tex_width / 20.0
+            bone_obj.head_radius = tex_width /10.0
 
             
             #bpy.ops.object.parent_set(type='BONE', xmirror=False, keep_transform=False)

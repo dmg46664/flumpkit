@@ -6,6 +6,7 @@ import math
 import os
 import collections
 import json
+import re
 
 from bpy.props import (StringProperty,
                        BoolProperty,
@@ -42,6 +43,10 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
         def execute(self, context):
                 self.export_to_json(context)
                 return {'FINISHED'}
+
+        #inverts y axis
+        def transformPoint(self, x, y, width, height):
+            return (x, height - y)
                 
                 
         def export_to_json(self, context):
@@ -61,24 +66,87 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                 movie = {}
                 movies.append(movie)
                 movie['id'] = 'walk'
+                movie['layers'] = []
+                
 
-                #get movie layers
-                #make armature active object (which hence changes the context)
-                bpy.context.scene.objects.active = bpy.context.scene.objects['Armature']
-                for bone_name in ('Body', 'Gut'):
-                        pose_bone = bpy.context.object.pose.bones[bone_name]
-                        obj = pose_bone.id_data
-                        matrix = obj.matrix_world * pose_bone.matrix
-                        loc, rotQ, scale = matrix.decompose()
+                #get layers
+                bpy.context.scene.objects.active = bpy.context.scene.objects['Armature'] #context now armature
+                ob_act = bpy.context.scene.objects.active.animation_data.action
+                curves = ob_act.fcurves        
+                bone_keys = bpy.context.object.pose.bones.keys() #some of these bones are layers
+                layers = (b for b in bone_keys if 'flump_layer' in bpy.context.object.pose.bones[b])
 
-                        self.report({'INFO'}, 'EXTRACT {0},{1},{2}'.format(loc,rotQ.to_euler(),scale))
+                layer_frames ={}
 
+                #loop through curves, add keyframes to ALL bones that are influenced by this bone
+                for curve_id, curve in enumerate(curves) :
+                        obj_name =re.search(r'"(\w+)"', curve.data_path).group(1)
+                        if obj_name not in layer_frames:
+                                layer_frames[obj_name] = []
+                        
+                        for key in curve.keyframe_points :                           
+                                frame, value = key.co
+                                #add frame to ALL objects that share obj_name TODO (parents)
+                                layer_frames[obj_name].append(frame)
+                                
+                                # do something with curve_id, frame and value
+##                                self.report({'INFO'}, 'EXTRACT {0},{1},{2}'.format(curve_id, frame, value))
+
+                sequence_length = 300
+
+                #loop through layer_frames
+                for bone_name in layers:
+
+                        frames = layer_frames[bone_name]
+                        
+                        #add json layer
+                        json_layer = {}
+                        movie['layers'].append(json_layer)
+                        json_layer['name'] = bone_name
+                        json_keyframes = []
+                        json_layer['keyframes'] = json_keyframes
+                        
+                        frames = sorted(frames)
+
+                        len_frames = len(frames)
+                        for i in range(len(frames)):
+                                json_frame = {}
+                                json_keyframes.append(json_frame)
+                                json_frame['index'] = frames[i]
+                                nextframe = sequence_length
+                                if (i+1 < len_frames):
+                                        nextframe = frames[i]
+                                json_frame['duration'] = nextframe - frames[i]
+
+                                #store frame values
+                                pose_bone = bpy.context.object.pose.bones[bone_name]
+                                obj = pose_bone.id_data
+                                matrix = obj.matrix_world * pose_bone.matrix
+                                loc, rotQ, scale = matrix.decompose()
+                                width = 200 #TODO
+                                height = 200
+                                x, y = self.transformPoint(loc[0], loc[1], width, height)
+                                json_frame['loc'] =[x, y]
+                                json_frame['skew'] = [matrix[0][1], matrix[1][0]]
+                                json_frame['scale'] = [matrix[0][0], matrix[1][1]]
+                                json_frame['pivot'] = [0.0, 0.0] #TODO
+                                
+                                
+
+##                        self.report({'INFO'}, 'EXTRACT {0},{1},{2}'.format(loc,rotQ.to_euler(),scale))
+
+                with open(jsonFile, 'w') as outfile:
+                        json.dump(data, outfile)
+                
+                
                 return
-                
-                
-                
 
-               
+                ####### EVERYTHING BELOW HERE IS fROM IMPORT!!!!!
+
+
+
+
+        
                 armature = self.create_armature()
 
                 #setup screen
