@@ -45,9 +45,19 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                 return {'FINISHED'}
 
         #inverts y axis
-        def transformPoint(self, x, y, width, height):
+        def transform_point(self, x, y, width, height):
             return (x, height - y)
-                
+
+        def transform_location(self, x, y):
+                return (x, -y)
+
+        #take transform of plane and convert into pivot
+        def get_pivot(self, obj, width, height):
+                tx = width /2.0
+
+                ox = -obj.location.x +tx
+                oy = -obj.location.y
+                return self.transform_point(ox, oy, width, height)
                 
         def export_to_json(self, context):
                 #~ jsonFile = get_json_file();
@@ -134,13 +144,16 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                                 obj = pose_bone.id_data
                                 matrix = obj.matrix_world * pose_bone.matrix
                                 loc, rotQ, scale = matrix.decompose()
-                                width = 200 #TODO
-                                height = 200
-                                x, y = self.transformPoint(loc[0], loc[1], width, height)
+                                #bounding box
+                                local_coords = symbols[bone_name].bound_box[:]
+                                coords = [p[:] for p in local_coords]
+                                width = coords[0][0] * -2
+                                height = coords[0][1] * -2
+                                x, y = self.transform_location(loc[0], loc[1])
                                 json_frame['loc'] =[x, y]
                                 json_frame['skew'] = [matrix[0][1], matrix[1][0]]
                                 json_frame['scale'] = [matrix[0][0], matrix[1][1]]
-                                json_frame['pivot'] = [0.0, 0.0] #TODO
+                                json_frame['pivot'] = self.get_pivot(symbols[bone_name], width, height)
                                 json_frame['ref'] = symbols[bone_name].name
                                 
                                 
