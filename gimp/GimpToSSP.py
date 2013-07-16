@@ -5,16 +5,20 @@
 #Change: Doesn't save txt files in GIMP bin directory
 
 #History
-# Author: Pravin Kumar (Aralox) <aralox@gmail.com>
+
+# Flump ammendments: Daniel Gerson
 # Copyright 2012 Pravin Kumar
 # License: GPL v3+
 # Version 1.0
+# Original Authors:
+# Pravin Kumar (Aralox) <aralox@gmail.com>
 # For the methods export_layers, get_layers_to_export and format_filename:
 #   Original Author: Chris Mohler <cr33dog@gmail.com> (Copyright 2009)
 
 import os;
 import subprocess
 import json
+import re
 from gimpfu import *
 
 def export_to_ssp(img, path, only_visible, flatten, sspack_dir, texname, mapname):
@@ -24,28 +28,47 @@ def export_to_ssp(img, path, only_visible, flatten, sspack_dir, texname, mapname
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
 
+    #prepare flump data
+    flump = {}
+    flump['textureGroups'] = []
+    flump_tg = {'scaleFactor':1}
+    flump['textureGroups'].append(flump_tg)
+    flump_tg['atlases'] = [{'file':'{0}.png'.format(texname), 'textures':[]}]
+    flump['movies'] = [{"id": "default", "layers": []}]
+
     #export layers to files
     imglist_name = os.path.join(path , "ImageList.txt")
     imglist_file = open(imglist_name, 'w')
-    export_layers(img, img_dir, only_visible, flatten, imglist_file)
+    export_layers(img, img_dir, only_visible, flatten, imglist_file, flump)
     imglist_file.close()
+
+    json_file = os.path.join(path, "library.json")
 
     #call sprite sheet packer (command line)
     sspack = os.path.join(sspack_dir, 'sspack.exe')
+    path_map = os.path.join(path, mapname) + '.txt'
+    path_atlas = os.path.join(path, texname) + '.png'
+    
     if os.path.exists(sspack):
 
-        param_img = '/image:' + os.path.join(path, texname) + '.png'   #eg. /image:C:\Users\Pravin\Desktop\test.png
-        param_map = '/map:' + os.path.join(path, mapname) + '.skin'    #eg. /map:C:\Users\Pravin\Desktop\test_map.skin
+        param_img = '/image:' + path_atlas   #eg. /image:C:\Users\Pravin\Desktop\test.png
+        param_map = '/map:' + path_map    #eg. /map:C:\Users\Pravin\Desktop\test_map.skin
         param_maxw = '/mw:4096' #default
         param_maxh = '/mh:4096' #default
         param_pad = '/pad:1'    #default
         param_imglist = '/il:' + imglist_name   #eg /il:C:\Users\Pravin\AppData\Roaming\SpriteSheetPacker\FileList.txt
-        pdb.gimp_message([sspack, param_img, param_map, param_maxw, param_maxh, param_pad, param_imglist])
+##        pdb.gimp_message([sspack, param_img, param_map, param_maxw, param_maxh, param_pad, param_imglist])
         subprocess.call([sspack, param_img, param_map, param_maxw, param_maxh, param_pad, param_imglist])
 
     else:
         pdb.gimp_message("sspack.exe was not found in that directory. Texture atlas and map were not created.")
 
+
+    #add to flump
+    add_map_to_flump(flump, path_map)
+    with open(json_file, 'w') as outfile:
+        json.dump(flump, outfile)
+    
     configDic = load_config_file()
     configDic['spritePackerPath'] = sspack_dir
     configDic['outputPath'] = path
@@ -55,6 +78,21 @@ def export_to_ssp(img, path, only_visible, flatten, sspack_dir, texname, mapname
     config.close()
 
     return
+
+
+def add_map_to_flump(flump, path_map):
+    with open(path_map) as f:
+        lines = f.readlines()
+    coords = {}
+    for li in lines:
+        g = re.search('([\w ]+) = (\d+) (\d+) (\d+) (\d+)', li)
+        coords[g.group(1)] = [int(g.group(2)), int(g.group(3)),
+                              int(g.group(4)), int(g.group(5)), ]
+    flump_textures = flump['textureGroups'][0]['atlases'][0]['textures']
+    for texture in flump_textures:
+        name = texture['symbol']
+        texture['rect'] = coords[name]
+    
 
 def get_config_file():
     filename = "GimpToSSP.cfg"
@@ -81,10 +119,12 @@ def get_output_path(config):
 
 #original version also had regex commands in here to clean out whitespace
 def format_filename(layer):
-    layername = layer.name.decode('utf-8')
+    layername = get_file_name(layer)
     filename = layername + '.png'
     return filename
 
+def get_file_name(layer):
+    return layer.name.decode('utf-8')
 
 def get_layers_to_export(img, only_visible):
     layers = []
@@ -101,7 +141,7 @@ def get_layers_to_export(img, only_visible):
 
 #Hide all layers, then show each layer one at a time and save image
 #Layer groups are treated as one layer. I cant find enough documentation on layer group functions to do anything else right now
-def export_layers(img, path, only_visible, flatten, file):
+def export_layers(img, path, only_visible, flatten, file, flump):
 
     #Use a duplicate image cos we dont want to mess up orig layers (visiblity/flattening)
     dupe = img.duplicate()
@@ -109,7 +149,12 @@ def export_layers(img, path, only_visible, flatten, file):
 
     #Hide all layers first
     for layer in dupe.layers:
-        layer.visible = 0 
+        layer.visible = 0
+
+    #flump textures and init poses
+    flump_textures = flump['textureGroups'][0]['atlases'][0]['textures']
+    flump_layers = flump['movies'][0]['layers']
+    
 
     #Show each layer at a time, and save
     for layer in dupe.layers:
@@ -121,6 +166,17 @@ def export_layers(img, path, only_visible, flatten, file):
             fullpath = os.path.join(path, filename);
             file.write(fullpath + '\n')
 
+            #flump header
+            name = get_file_name(layer)
+            flump_textures.append({'rect':[layer.offsets[0],layer.offsets[1],layer.width,layer.height],
+                                   'origin':[layer.width /2, layer.height/2],
+                                   'symbol': name})
+            #flump layer
+            flump_layer = {'name':name, 'keyframes':[]}
+            flump_layers.append(flump_layer)
+            flump_layer['keyframes'].append({'ref':name, 'loc':[layer.offsets[0],layer.offsets[1]],
+                                             'pivot':[layer.width /2,layer.height/2]})
+
             #use a a dupe again, so if we want to flatten (replace alpha with back color) we dont mess it up for the others
             tmp = dupe.duplicate()  
             if (flatten):
@@ -131,8 +187,8 @@ def export_layers(img, path, only_visible, flatten, file):
 
 #REGISTER
 import sys
-sys.stderr = open( 'c:\\temp\\gimpstderr.txt', 'w')
-sys.stdout = open( 'c:\\temp\\gimpstdout.txt', 'w')
+##sys.stderr = open( 'c:\\tmp\\gimpstderr.txt', 'w')
+##sys.stdout = open( 'c:\\tmp\\gimpstdout.txt', 'w')
 
 config = load_config_file()
 
