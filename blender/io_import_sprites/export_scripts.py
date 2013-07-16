@@ -151,8 +151,9 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                                 height = coords[0][1] * -2
                                 x, y = self.transform_location(loc[0], loc[1])
                                 json_frame['loc'] =[x, y]
-                                json_frame['skew'] = [matrix[0][1], matrix[1][0]]
-                                json_frame['scale'] = [matrix[0][0], matrix[1][1]]
+                                angle = -rotQ.to_euler().z #* math.pi / 180
+                                json_frame['skew'] = [angle, angle]
+                                json_frame['scale'] = [scale[0], scale[1]]
                                 json_frame['pivot'] = self.get_pivot(symbols[bone_name], width, height)
                                 json_frame['ref'] = symbols[bone_name].name
                                 
