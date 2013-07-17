@@ -129,6 +129,13 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
 
                         layer_frames[obj_name] = sorted(list(set(layer_frames[obj_name])))
 
+                #add parents keyframes to child
+                for bone in bpy.data.armatures[0].bones[:]:
+                        parents = [p.name for p in bone.parent_recursive]
+                        for parent in parents:
+                                layer_frames[bone.name].extend(layer_frames[parent])
+                        layer_frames[bone.name] = sorted(list(set(layer_frames[bone.name])))
+
                 sequence_length = bpy.context.scene.frame_end
 
                 #loop through layer_frames
