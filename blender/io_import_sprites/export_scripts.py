@@ -56,12 +56,22 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                 return (x, -y)
 
         #take transform of plane and convert into pivot
-        def get_pivot(self, obj, width, height):
-                tx = width /2.0
+        def get_pivot(self, arm_name, obj, width, height):
 
+                #use relative
+                #TODO, find by armature name
+                if not bpy.data.armatures[0].bones[obj.name].use_relative_parent:
+                        tx = width /2.0
+
+                        ox = -obj.location.x +tx
+                        oy = -obj.location.y
+                        return self.transform_point(ox, oy, width, height)
+
+                tx = width /2.0
                 ox = -obj.location.x +tx
-                oy = -obj.location.y
+                oy = -obj.location.y + (height /2.0)
                 return self.transform_point(ox, oy, width, height)
+                        
                 
         def export_to_json(self, context):
                 #~ jsonFile = get_json_file();
@@ -78,6 +88,7 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
 
                 movies = []
                 data['movies'] = movies
+                data['frameRate'] = bpy.context.scene.render.fps
                 movie = {}
                 movies.append(movie)
                 movie['id'] = 'walk'
@@ -85,7 +96,8 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                 
 
                 #get layers
-                bpy.context.scene.objects.active = bpy.context.scene.objects['Armature'] #context now armature
+                armature_name = 'Armature'
+                bpy.context.scene.objects.active = bpy.context.scene.objects[armature_name] #context now armature
                 arm = bpy.context.scene.objects.active 
                 ob_act = bpy.context.scene.objects.active.animation_data.action
                 curves = ob_act.fcurves        
@@ -159,7 +171,8 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                                 angle = -rotQ.to_euler().z #* math.pi / 180
                                 json_frame['skew'] = [angle, angle]
                                 json_frame['scale'] = [scale[0], scale[1]]
-                                json_frame['pivot'] = self.get_pivot(symbols[bone_name], width, height)
+                                json_frame['pivot'] = self.get_pivot(armature_name, symbols[bone_name],
+                                                                     width, height)
                                 json_frame['ref'] = symbols[bone_name].name
                                 
                                 
