@@ -474,6 +474,7 @@ class FlumpProps(bpy.types.PropertyGroup):
 ##    files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
 ##
 ##    directory = StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'})
+    flump_library = StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'})
 ##
 ##    # Show only images/videos, and directories!
 ##    filter_image = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})

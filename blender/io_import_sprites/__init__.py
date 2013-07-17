@@ -68,7 +68,7 @@ if 'bpy' in locals():
 ##    print("BPY in locals!!!")
     import imp
     if 'io_import_sprites.import_scripts' in locals():
-##        imp.reload(io_import_sprites.common)
+        imp.reload(io_import_sprites.common)
         imp.reload(io_import_sprites.import_scripts)
         imp.reload(io_import_sprites.export_scripts)
 ##else: #TODO ---------------------------------------- <-- Something wrong! Shouldn't be commented out.
@@ -84,6 +84,9 @@ if 'IMPORT_OT_planes_from_json' not in locals():
             )
     from io_import_sprites.export_scripts import (
             EXPORT_OT_flump_to_json,
+            )
+    from io_import_sprites.common import (
+            FlumpProps,
             )
     
 
@@ -106,8 +109,7 @@ class VIEW3D_PT_flump_kit(View3DPanel, Panel):
     #~ bl_space_type = 'PROPERTIES'
     #~ bl_region_type = 'WINDOW'
     bl_context = "objectmode"
-    
-##    filepath = bpy.props.StringProperty(subtype='FILE_PATH') 
+##    flump_filepath = bpy.props.StringProperty(subtype='FILE_PATH') 
 
     def draw(self, context):
         #~ self.layout.label(text="Hello World")
@@ -116,7 +118,8 @@ class VIEW3D_PT_flump_kit(View3DPanel, Panel):
         col.operator(IMPORT_OT_planes_from_json.bl_idname)
         col.operator(IMPORT_OT_delete_scene.bl_idname)
         col.operator(EXPORT_OT_flump_to_json.bl_idname)
-##        col.prop(self, 'filepath')
+        props = bpy.context.scene.FlumpProps
+        col.prop(props, 'flump_library')
         
 
 ##class IMPORT_OT_sprites_to_plane:
@@ -136,6 +139,10 @@ def register():
     #http://wiki.blender.org/index.php/Dev:2.5/Py/Scripts/Cookbook/Code_snippets/Interface
     
     bpy.utils.register_module(__name__) #registers everything in this file
+
+    #create properties for scene
+    bpy.types.Scene.FlumpProps = bpy.props.PointerProperty(type=FlumpProps)
+    
     #or do  for example
     #~ bpy.utils.register_class(HelloWorldPanel)
 ##    bpy.types.INFO_MT_file_import.append(import_images_button) #adds items to menu

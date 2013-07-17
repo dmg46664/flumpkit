@@ -1,3 +1,6 @@
+## Author: Daniel Gerson
+##GPL 3.0 unless otherwise specified.
+
 import bpy
 from bpy.types import Operator
 from bpy.types import Menu, Panel
@@ -41,6 +44,7 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
         props = bpy.props.PointerProperty(type=FlumpProps)
         
         def execute(self, context):
+##                self.props = bpy.context.scene.FlumpProps
                 self.export_to_json(context)
                 return {'FINISHED'}
 
@@ -62,7 +66,8 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
         def export_to_json(self, context):
                 #~ jsonFile = get_json_file();
                 #~ print(jsonFile)
-                jsonFile = "C:\\Libraries\\Maven\\tripleplay\\demo\\assets\\src\\main\\resources\\assets\\flump\\library.json"
+                props = bpy.context.scene.FlumpProps
+                jsonFile = props.flump_library
                 json_data=open(jsonFile)
                 data = json.load(json_data)
                 json_data.close()
@@ -165,50 +170,4 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                         json.dump(data, outfile)
                 
                 
-                return
-
-                ####### EVERYTHING BELOW HERE IS fROM IMPORT!!!!!
-
-
-
-
-        
-                armature = self.create_armature()
-
-                #setup screen
-                #bpy.data.screens["Default"].(null) = 'TEXTURED'
-##               bpy.data.screens["Default"].(null) = 10000
-
-                #create bones and parent them
-                depth = 0
-                for movie in data['movies']:
-                    movie_id = movie['id']
-                    self.report({'INFO'}, "movie: "+movie['id'])
-                    for layer in movie['layers']:
-                        keyframes = layer['keyframes']
-                        ref = keyframes[0]['ref']
-##                        self.report({'INFO'}, "  layer: "+layer['name']+" "+ref)
-                        plane, tex = tex_map[ref]
-                        bone_name = layer['name']
-                        self.create_bone(armature, bone_name, tex['rect'][2], tex['rect'][3], depth)
-                        depth += 0.1
-                        self.set_parent_bone(plane, armature, layer['name']) #only single symbol support
-                        
-                    break #break on first  animation
-
-                for movie in data['movies']:
-                    movie_id = movie['id']
-##                    self.report({'INFO'}, "movie: "+movie['id'])
-                    if not (movie_id =='walk'):
-                            continue
-##                        else:
-##                                self.report({'INFO'}, "WALK")
-                    for layer in movie['layers']:
-                        keyframes = layer['keyframes']
-                        ref = keyframes[0]['ref']
-                        plane, tex = tex_map[ref]
-                        bone_name = layer['name']
-                        for key in keyframes:
-                            self.pose_layer(armature, bone_name, plane, tex, key)
-                    
                 return

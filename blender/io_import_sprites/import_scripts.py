@@ -1,3 +1,6 @@
+## Author: Daniel Gerson
+##GPL 3.0 unless otherwise specified.
+
 import bpy
 from bpy.types import Operator
 from bpy.types import Menu, Panel
@@ -39,7 +42,7 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
 
         props = bpy.props.PointerProperty(type=FlumpProps)
         
-        def execute(self, context):
+        def execute(self, context):                
                 self.import_from_json(context)
                 return {'FINISHED'}
                 
@@ -242,12 +245,16 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
         def import_from_json(self, context):
                 #~ jsonFile = get_json_file();
                 #~ print(jsonFile)
-                jsonFile = "C:\\tmp\\flumpkit\\demos\\flump\\library.json"
+                props = bpy.context.scene.FlumpProps
+                jsonFile = props.flump_library
+##                jsonFile = "C:\\tmp\\flumpkit\\demos\\flump\\library.json"
                 json_data=open(jsonFile)
                 data = json.load(json_data)
                 json_data.close()
 
-                image_path = "C:\\tmp\\flumpkit\\demos\\flump\\atlas0.png"
+##                image_path = "C:\\tmp\\flumpkit\\demos\\flump\\atlas0.png"
+                atlas_file = data['textureGroups'][0]['atlases'][0]['file']
+                image_path = os.path.join(os.path.dirname(jsonFile),atlas_file)
                 image = load_image(image_path, "")
 
                 #planes and textures are the same thing at this stage
