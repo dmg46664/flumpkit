@@ -152,43 +152,40 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                         json_layer['keyframes'] = json_keyframes
 
                         zdepth = None
+
+
+##                        #TODO iterate throught keyframes, add AND insert
+##                        for i in range(len(frames)):
+##                                start_frame = frames[i]
+##                                next_frame = sequence_length
+##                                if (i+1 < len_frames):
+##                                        next_frame = frames[i+1]
+##                                #calculate start_frame, hold json & matrix
+##                                #insert json of start_frame
+##
+##                                #calculate next_frame, hold json & matrix
+##
+##                                #start iterating through the 
+                                
+                        
                                                 
                         len_frames = len(frames)
                         for i in range(len(frames)):
-                                json_frame = {}
+                                json_frame, loc_z = self.create_keyframe(frames[i], bone_name,
+                                                                         armature_name, symbols)
                                 json_keyframes.append(json_frame)
-                                json_frame['index'] = frames[i]
                                 nextframe = sequence_length
                                 if (i+1 < len_frames):
                                         nextframe = frames[i+1]
                                 json_frame['duration'] = nextframe - frames[i]
-
-                                #store frame values
-                                bpy.context.scene.frame_set(frames[i])
-                                pose_bone = bpy.context.object.pose.bones[bone_name]
-                                obj = pose_bone.id_data
-                                matrix = obj.matrix_world * pose_bone.matrix
-                                loc, rotQ, scale = matrix.decompose()
-                                #bounding box
-                                local_coords = symbols[bone_name].bound_box[:]
-                                coords = [p[:] for p in local_coords]
-                                width = coords[0][0] * -2
-                                height = coords[0][1] * -2
-                                x, y = self.transform_location(loc[0], loc[1])
-                                #find z depth order
+                                
+                                #find z depth order (useful to do this at the same time
                                 if zdepth is None: #only run on first keyframe
-                                        zdepth = loc[2]
+                                        zdepth = loc_z
                                         if zdepth not in layer_zdict:
                                                 layer_zdict[zdepth] = []
                                         layer_zdict[zdepth].append(json_layer)
-                                json_frame['loc'] =[x, y]
-                                angle = -rotQ.to_euler().z #* math.pi / 180
-                                json_frame['skew'] = [angle, angle]
-                                json_frame['scale'] = [scale[0], scale[1]]
-                                json_frame['pivot'] = self.get_pivot(armature_name, symbols[bone_name],
-                                                                     width, height)
-                                json_frame['ref'] = symbols[bone_name].name
-
+        
 
                 #add json layers in correct zdepth order, as determined by first keyframe.
                 for z in sorted(list(layer_zdict.keys())): #not thread safe ;-)
@@ -204,3 +201,30 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                 
                 
                 return
+
+        def create_keyframe(self, frame, bone_name, armature_name, symbols):
+                json_frame = {}                
+                json_frame['index'] = frame                
+
+                #store frame values
+                bpy.context.scene.frame_set(frame)
+                pose_bone = bpy.context.object.pose.bones[bone_name]
+                obj = pose_bone.id_data
+                matrix = obj.matrix_world * pose_bone.matrix
+                loc, rotQ, scale = matrix.decompose()
+                #bounding box
+                local_coords = symbols[bone_name].bound_box[:]
+                coords = [p[:] for p in local_coords]
+                width = coords[0][0] * -2
+                height = coords[0][1] * -2
+                x, y = self.transform_location(loc[0], loc[1])
+                
+                json_frame['loc'] =[x, y]
+                angle = -rotQ.to_euler().z #* math.pi / 180
+                json_frame['skew'] = [angle, angle]
+                json_frame['scale'] = [scale[0], scale[1]]
+                json_frame['pivot'] = self.get_pivot(armature_name, symbols[bone_name],
+                                                     width, height)
+                json_frame['ref'] = symbols[bone_name].name
+
+                return json_frame, loc[2]
