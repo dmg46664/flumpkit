@@ -138,6 +138,7 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
 
                 sequence_length = bpy.context.scene.frame_end
 
+                layer_zdict = {}
                 #loop through layer_frames
                 for bone_name in layers:
 
@@ -145,13 +146,13 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                         
                         #add json layer
                         json_layer = {}
-                        movie['layers'].append(json_layer)
+                        
                         json_layer['name'] = bone_name
                         json_keyframes = []
                         json_layer['keyframes'] = json_keyframes
-                        
-                        
 
+                        zdepth = None
+                                                
                         len_frames = len(frames)
                         for i in range(len(frames)):
                                 json_frame = {}
@@ -174,6 +175,12 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                                 width = coords[0][0] * -2
                                 height = coords[0][1] * -2
                                 x, y = self.transform_location(loc[0], loc[1])
+                                #find z depth order
+                                if zdepth is None: #only run on first keyframe
+                                        zdepth = loc[2]
+                                        if zdepth not in layer_zdict:
+                                                layer_zdict[zdepth] = []
+                                        layer_zdict[zdepth].append(json_layer)
                                 json_frame['loc'] =[x, y]
                                 angle = -rotQ.to_euler().z #* math.pi / 180
                                 json_frame['skew'] = [angle, angle]
@@ -181,6 +188,12 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                                 json_frame['pivot'] = self.get_pivot(armature_name, symbols[bone_name],
                                                                      width, height)
                                 json_frame['ref'] = symbols[bone_name].name
+
+
+                #add json layers in correct zdepth order, as determined by first keyframe.
+                for z in sorted(list(layer_zdict.keys())): #not thread safe ;-)
+                        for item in layer_zdict[z]:
+                                movie['layers'].append(item) #json_layer
                                 
                                 
 
