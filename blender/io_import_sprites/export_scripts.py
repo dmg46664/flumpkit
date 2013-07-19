@@ -12,12 +12,12 @@ import json
 import re
 
 from bpy.props import (StringProperty,
-                       BoolProperty,
-                       EnumProperty,
-                       IntProperty,
-                       FloatProperty,
-                       CollectionProperty,
-                       )
+    BoolProperty,
+    EnumProperty,
+    IntProperty,
+    FloatProperty,
+    CollectionProperty,
+    )
 
 from bpy_extras.object_utils import AddObjectHelper, object_data_add
 from bpy_extras.image_utils import load_image
@@ -31,9 +31,9 @@ from bl_ui.space_view3d_toolbar import View3DPanel
 print("LOADING: import_scripts.py!!!!")
 
 from io_import_sprites.common import (
-            SpritesFunctions,
-            FlumpProps
-            )
+    SpritesFunctions,
+    FlumpProps
+    )
 
 
 class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
@@ -122,7 +122,7 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                         for key in curve.keyframe_points :                           
                                 frame, value = key.co
                                 #add frame to ALL objects that share obj_name TODO (parents)
-                                layer_frames[obj_name].append(frame)
+                                layer_frames[obj_name].append(int(frame))
                                 
                                 # do something with curve_id, frame and value
 ##                                self.report({'INFO'}, 'EXTRACT {0},{1},{2}'.format(curve_id, frame, value))
@@ -136,7 +136,7 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                                 layer_frames[bone.name].extend(layer_frames[parent])
                         layer_frames[bone.name] = sorted(list(set(layer_frames[bone.name])))
 
-                sequence_length = bpy.context.scene.frame_end
+                sequence_length = int(bpy.context.scene.frame_end)
 
                 layer_zdict = {}
                 #loop through layer_frames
@@ -153,38 +153,48 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
 
                         zdepth = None
 
+                        keyframe_container = {}
+                        #old way, straight
+                        for i in range(len(frames)):                                
+                                nextframe = sequence_length
+                                if (i+1 < len(frames)):
+                                        nextframe = frames[i+1]
 
-##                        #TODO iterate throught keyframes, add AND insert
-##                        for i in range(len(frames)):
-##                                start_frame = frames[i]
-##                                next_frame = sequence_length
-##                                if (i+1 < len_frames):
-##                                        next_frame = frames[i+1]
-##                                #calculate start_frame, hold json & matrix
-##                                #insert json of start_frame
-##
-##                                #calculate next_frame, hold json & matrix
-##
-##                                #start iterating through the 
-                                
-                        
-                                                
-                        len_frames = len(frames)
-                        for i in range(len(frames)):
                                 json_frame, loc_z = self.create_keyframe(frames[i], bone_name,
                                                                          armature_name, symbols)
-                                json_keyframes.append(json_frame)
-                                nextframe = sequence_length
-                                if (i+1 < len_frames):
-                                        nextframe = frames[i+1]
-                                json_frame['duration'] = nextframe - frames[i]
+                                keyframe_container[frames[i]] = json_frame
+
+                        #fit to curve
+                        constants = (sequence_length, armature_name, bone_name, symbols)
+                        for i in range(len(frames)):                                
+                            nextframe = sequence_length
+                            if (i+1 < len(frames)):
+                                nextframe = frames[i+1]
+                        
+                            self.fit_to_curve(frames[i], nextframe,
+                                keyframe_container, constants)
+
+                        frames = sorted(list(set(keyframe_container.keys())))
+                        for i in range(len(frames)):
+                            nextframe = sequence_length
+                            if (i+1 < len(frames)):
+                                nextframe = frames[i+1]
+                            json_frame = keyframe_container[frames[i]]
+                            json_keyframes.append(json_frame)  
+                            json_frame['duration'] = nextframe - frames[i]
+
+
+                        #find z depth order (useful to do this at the same time
+                        loc, rotQ, scale = self.get_bone_transform(0, bone_name)
+                        if zdepth is None: #only run on first keyframe
+                                zdepth = loc[2]
+                                if zdepth not in layer_zdict:
+                                        layer_zdict[zdepth] = []
+                                layer_zdict[zdepth].append(json_layer)
+
+
+                        
                                 
-                                #find z depth order (useful to do this at the same time
-                                if zdepth is None: #only run on first keyframe
-                                        zdepth = loc_z
-                                        if zdepth not in layer_zdict:
-                                                layer_zdict[zdepth] = []
-                                        layer_zdict[zdepth].append(json_layer)
         
 
                 #add json layers in correct zdepth order, as determined by first keyframe.
@@ -202,16 +212,81 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                 
                 return
 
+        #adds keyframes to match linear to curve.
+        def fit_to_curve(self, start_frame, end_frame,
+                         keyframe_container, constants):
+            #extract constants
+            sequence_length, armature_name, bone_name, symbols = constants
+            for i in range(start_frame, end_frame):
+                transform_start = None
+                transform_end = None
+                #generate start keyframe
+                if start_frame not in keyframe_container:
+                    json_start, transform_start = self.create_keyframe(start_frame, bone_name,
+                                                             armature_name, symbols)
+                    keyframe_container[start_frame] = json_start
+                else: #TODO redundant sometimes.
+                    transform_start = self.get_bone_transform(start_frame, bone_name)
+                #generate end keyframe
+                if end_frame not in keyframe_container:
+                    json_end, transform_end = self.create_keyframe(end_frame, bone_name,
+                                                             armature_name, symbols)
+                    keyframe_container[end_frame] = json_end
+                else: #TODO redundant sometimes.
+                    transform_end = self.get_bone_transform(end_frame, bone_name)
+                
+                #get transform of frame i
+                transform_i = self.get_bone_transform(i, bone_name)
+
+                #interpolate start and end transforms at i
+                percent = (i - start_frame)/ (end_frame - start_frame)
+                loc = transform_start[0] + (transform_end[0] - transform_start[0]) * percent
+                rz_start = transform_start[1].to_euler().z 
+                rz_end = transform_end[1].to_euler().z
+                rz = rz_start + (rz_end - rz_start) * percent
+                scale = transform_start[2] + (transform_end[2] - transform_start[2]) * percent
+
+                #test
+                match = True
+                if (abs(loc[0] - transform_i[0][0]) > 1): match = False
+                if (abs(loc[1] - transform_i[0][1]) > 1): match = False
+                ri = transform_i[1].to_euler().z
+                if ((ri - rz) % 360 > 1): match = False
+                #TODO scale
+
+                if match is True: #matches where it is supposed to be
+                    continue
+
+                mid_frame = int((start_frame + end_frame)/2)
+                if mid_frame in [start_frame, end_frame]: return
+
+                #recursion
+                self.fit_to_curve(start_frame, mid_frame,
+                         keyframe_container, constants)
+
+                self.fit_to_curve(mid_frame, end_frame,
+                         keyframe_container, constants)
+
+                return
+                
+
+                
+
+        def get_bone_transform(self, frame, bone_name):
+            bpy.context.scene.frame_set(frame)
+            pose_bone = bpy.context.object.pose.bones[bone_name]
+            obj = pose_bone.id_data
+            matrix = obj.matrix_world * pose_bone.matrix
+##            loc, rotQ, scale = matrix.decompose()
+            return matrix.decompose()
+
         def create_keyframe(self, frame, bone_name, armature_name, symbols):
                 json_frame = {}                
-                json_frame['index'] = frame                
-
+                json_frame['index'] = frame
+                
                 #store frame values
-                bpy.context.scene.frame_set(frame)
-                pose_bone = bpy.context.object.pose.bones[bone_name]
-                obj = pose_bone.id_data
-                matrix = obj.matrix_world * pose_bone.matrix
-                loc, rotQ, scale = matrix.decompose()
+                loc, rotQ, scale = self.get_bone_transform(frame, bone_name)
+                
                 #bounding box
                 local_coords = symbols[bone_name].bound_box[:]
                 coords = [p[:] for p in local_coords]
@@ -227,4 +302,4 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                                                      width, height)
                 json_frame['ref'] = symbols[bone_name].name
 
-                return json_frame, loc[2]
+                return json_frame, (loc, rotQ, scale)
