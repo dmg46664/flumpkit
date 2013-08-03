@@ -185,6 +185,9 @@ def export_layers(img, path, only_visible, flatten, file, flump):
             #see the procedure browser under the help menu in gimp, for info on this function
             pdb.file_png_save(tmp, layer, fullpath, filename, 0, 9, 1, 1, 1, 1, 1)
 
+    #revers movie layers (so it will be imported from bottom to top)
+    flump['movies'][0]['layers'] = [k for k in reversed(flump_layers)]
+
 #REGISTER
 import sys
 ##sys.stderr = open( 'c:\\tmp\\gimpstderr.txt', 'w')

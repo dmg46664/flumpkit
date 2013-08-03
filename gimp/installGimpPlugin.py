@@ -12,6 +12,7 @@ def main():
         messageBox("Gimp 2.8 not found")
         
     shutil.copy2(filename, os.path.join(location, filename))
+    print "copied "+filename+" to "+os.path.join(location, filename)
 
     make_config_file()
 
@@ -37,6 +38,7 @@ def make_config_file():
     installPath = os.path.dirname(os.path.realpath( __file__ ))
     spritePackerPath = os.path.join(installPath, "spriteSheetPacker")
     config = {"spritePackerPath": spritePackerPath, 'outputPath':installPath}
+    print "Generating config file: "+configfile
     print "SpritePackerPath: "+spritePackerPath
     f = open(configfile, 'w')
     f.write(json.dumps(config))
