@@ -56,11 +56,11 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                 return (x, -y)
 
         #take transform of plane and convert into pivot
-        def get_pivot(self, arm_name, obj, width, height):
+        def get_pivot(self, arm_name, bone_name, obj, width, height):
 
                 #use relative
                 #TODO, find by armature name
-                if not bpy.data.armatures[0].bones[obj.name].use_relative_parent:
+                if not bpy.data.armatures[0].bones[bone_name].use_relative_parent:
                         tx = width /2.0
 
                         ox = -obj.location.x +tx
@@ -91,7 +91,7 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                 data['frameRate'] = bpy.context.scene.render.fps
                 movie = {}
                 movies.append(movie)
-                movie['id'] = 'walk'
+                movie['id'] = props.movie_id
                 movie['layers'] = []
                 
 
@@ -318,7 +318,7 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                 angle = -rotQ.to_euler().z #* math.pi / 180
                 json_frame['skew'] = [angle, angle]
                 json_frame['scale'] = [scale[0], scale[1]]
-                json_frame['pivot'] = self.get_pivot(armature_name, symbols[bone_name],
+                json_frame['pivot'] = self.get_pivot(armature_name, bone_name, symbols[bone_name],
                                                      width, height)
                 json_frame['ref'] = symbols[bone_name].name
 
