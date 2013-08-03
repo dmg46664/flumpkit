@@ -174,7 +174,10 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                             self.fit_to_curve(frames[i], nextframe,
                                 keyframe_container, constants)
 
+                        #sort, add duration, add json to final list,
+                        #rotation hack
                         frames = sorted(list(set(keyframe_container.keys())))
+                        rot_adjust = 0
                         for i in range(len(frames)):
                             nextframe = sequence_length
                             if (i+1 < len(frames)):
@@ -182,6 +185,18 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
                             json_frame = keyframe_container[frames[i]]
                             json_keyframes.append(json_frame)  
                             json_frame['duration'] = nextframe - frames[i]
+
+                            #rotation hack (fixes smooth >360 flips, dislikes long transitions).
+                            json_frame['skew'][0] += rot_adjust
+                            json_frame['skew'][1] += rot_adjust
+                            if nextframe is not sequence_length:
+                                rotation1 = json_frame['skew'][0]
+                                rotation2 = keyframe_container[frames[i+1]]['skew'][0] + rot_adjust
+                                if rotation1 - rotation2 > math.pi:
+                                    rot_adjust += 2*math.pi
+                                if rotation1 - rotation2 < -math.pi:
+                                    rot_adjust -= 2*math.pi
+                                
 
 
                         #find z depth order (useful to do this at the same time
@@ -248,11 +263,16 @@ class EXPORT_OT_flump_to_json(Operator, SpritesFunctions):
 
                 #test
                 match = True
-                if (abs(loc[0] - transform_i[0][0]) > 1): match = False
-                if (abs(loc[1] - transform_i[0][1]) > 1): match = False
+                if (abs(loc[0] - transform_i[0][0]) > 1): match = 1
+                if (abs(loc[1] - transform_i[0][1]) > 1): match = 2
                 ri = transform_i[1].to_euler().z
-                if ((ri - rz) % 360 > 1): match = False
+                angle_diff = ((ri - rz)/math.pi*180) % 360
+                if (angle_diff > 1 and angle_diff < 359): match = 3
+                
                 #TODO scale
+##                if match is not True:
+##                    self.report({'INFO'}, 'match {0}'.format(angle_diff))
+                
 
                 if match is True: #matches where it is supposed to be
                     continue
