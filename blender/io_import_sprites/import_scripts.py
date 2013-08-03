@@ -221,6 +221,8 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
             bone.scale.y = scale[1]
             bone.keyframe_insert(data_path="scale", frame=index)
 
+        relative_parent = True
+
         if 'pivot' in key:
             pivot = key['pivot']
             #invertY 
@@ -229,9 +231,16 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
             #tail position in image coordinates
             tx = width / 2.0
             ty = height / 2.0
-            #set origin
-            plane.location.x =  - ox + tx
-            plane.location.y =  - oy
+
+            if not relative_parent:
+                #set origin
+                plane.location.x =  - ox + tx
+                plane.location.y =  - oy
+            else:
+                bpy.data.armatures[armature.name].bones[bone_name].use_relative_parent = True
+                bpy.data.armatures[armature.name].bones[bone_name].use_local_location = False
+                plane.location.x =  (-width /2 )+ox
+                plane.location.y =  (+height/2) - oy
             plane.keyframe_insert(data_path="location", frame=index)
 
         
