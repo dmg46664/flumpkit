@@ -315,7 +315,7 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
                 for movie in data['movies']:
                     movie_id = movie['id']
                     self.report({'INFO'}, "movie: "+movie['id'])
-                    if not (movie_id =='walk'):
+                    if not (movie_id == props.movie_id):
                             continue
 ##                        else:
 ##                                self.report({'INFO'}, "WALK")

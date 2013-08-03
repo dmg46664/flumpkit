@@ -481,6 +481,7 @@ class FlumpProps(bpy.types.PropertyGroup):
 ##    filter_movie = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
 ##    filter_folder = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
 ##    filter_glob = StringProperty(default="", options={'HIDDEN', 'SKIP_SAVE'})
+    movie_id = StringProperty(default="default" )#options={'HIDDEN', 'SKIP_SAVE'})
 ##
 ##    # --------
 ##    # Options.

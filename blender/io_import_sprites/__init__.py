@@ -120,6 +120,7 @@ class VIEW3D_PT_flump_kit(View3DPanel, Panel):
         col.operator(EXPORT_OT_flump_to_json.bl_idname)
         props = bpy.context.scene.FlumpProps
         col.prop(props, 'flump_library')
+        col.prop(props, 'movie_id')
         
 
 ##class IMPORT_OT_sprites_to_plane:
