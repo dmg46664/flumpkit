@@ -174,7 +174,7 @@ def export_layers(img, path, only_visible, flatten, file, flump):
             #flump layer
             flump_layer = {'name':name, 'keyframes':[]}
             flump_layers.append(flump_layer)
-            flump_layer['keyframes'].append({'ref':name, 'loc':[layer.offsets[0],layer.offsets[1]],
+            flump_layer['keyframes'].append({'ref':name, 'loc':[layer.offsets[0] + layer.width /2,layer.offsets[1] + layer.height /2],
                                              'pivot':[layer.width /2,layer.height/2],
                                              'index':0, 'duration':10})
 
