@@ -19,15 +19,13 @@
 ## Interesting way to create the rig for Flump? http://www.cgmasters.net/free-tutorials/environment-animation-in-blender-2-5/
 
 bl_info = {
-    "name": "Import Sprites as Planes",
+    "name": "Flumpkit",
     "author": "Daniel Gerson. Old code from: Florian Meyer (tstscr), mont29, matali",
-    "version": (1, 9),
+    "version": (1, 0),
     "blender": (2, 66, 4),
-    "location": "File > Import > Images as Planes or Add > Mesh > Images as Planes",
-    "description": "Imports images and creates planes with the appropriate aspect ratio. "
-                   "The images are mapped to the planes.",
-    "warning": "Based on Import Image Plane",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Add_Mesh/Planes_from_Images",
+    "location": "Under the Object Tools & Rigid Body menu in default object view.",
+    "description": "Tools to import, prep and export the flump animation file format",
+    "wiki_url": "https://github.com/dmg46664/flumpkit",
     "tracker_url": "https://projects.blender.org/tracker/index.php?func=detail&aid=21751",
     "category": "Import-Export"}
 
