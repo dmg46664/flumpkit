@@ -188,26 +188,38 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
             if 'scale' in key:
                 scale = key['scale']
 
+            #origin
+            #ox, oy = self.transformPoint(ox, oy, width , height)
+
+            #work out longest vector
+            v = Vector((ox - width, 0.0,0.0))
+            if height > width:
+                v = Vector((0.0, oy - height, 0.0))
+            
             m = mathutils.Matrix.Identity(3)
             m[0][0] = scale[0]
             m[1][1] = scale[1]
             m[0][1] = skew[0]
             m[1][0] = skew[1]
 
-            #y transform
-            y = Vector((1.0, 0.0, 0.0))
-            v = m * y
-            angle = v.angle(y)
-            c = v.cross(y)
+            r = m * v
+            avg = v.angle(r)
+            c = v.cross(r)
 
-            #x transform
-            x = Vector((0.0, 1.0, 0.0))
-            v = m * x
-            angle2 = v.angle(x)
+##            #y transform
+##            y = Vector((1.0, 0.0, 0.0))
+##            v = m * y
+##            angle = v.angle(y)
+##            c = v.cross(y)
+##
+##            #x transform
+##            x = Vector((0.0, 1.0, 0.0))
+##            v = m * x
+##            angle2 = v.angle(x)
 
-            self.report({'INFO'}, "  angle: {0} angle2: {1}".format(angle, angle2))
+##            self.report({'INFO'}, "  angle: {0} angle2: {1}".format(angle, angle2))
 
-            avg = (angle + angle2)/2.0
+##            avg = (angle + angle2)/2.0
             if c[2] < 0:
                 avg *= -1
 
@@ -225,6 +237,8 @@ class IMPORT_OT_planes_from_json(Operator, SpritesFunctions):
 
         if 'pivot' in key:
             pivot = key['pivot']
+            #pivot is actually the same as origin (just updated in case of switching symbols per layer)
+            
             #invertY 
             ox, oy = self.transformPoint(pivot[0], pivot[1], width , height)
 
