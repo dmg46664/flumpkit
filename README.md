@@ -1,7 +1,13 @@
 flumpkit
 ========
 
-Introducing flumpkit for blender and Gimp for the flump animation file format.
+Introducing flumpkit for blender & Gimp. Tools for the flump animation file format.
+
+See an example of the results here.
+
+##[Link to result of export](http://dmg46664.github.io/demo.html)
+
+See the following video to get started and see how this was done.
 
 [![ScreenShot](https://raw.github.com/wiki/dmg46664/flumpkit/flumpYouTube.png)](http://www.youtube.com/watch?v=HjA2)
 
